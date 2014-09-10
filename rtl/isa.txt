@@ -1,0 +1,19 @@
+
+registers
+8 registers
+r0 == zero
+
+1 111 110 000000000
+5 432 109 876543210
+- --- ------------
+
+alu op
+0 AAA DDD BBBxxxOOO
+
+branch
+1 AAA ooo ooooooooo
+
+alu ops:
+000 - add
+001 - sub
+

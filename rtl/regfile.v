@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014 Travis Geiselbrecht
+ * Copyright (c) 2014 Travis Geiselbrecht
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
@@ -22,50 +22,52 @@
  */
 `timescale 1ns/1ns
 
-module testbench(
-    input clk
+module regfile(
+    input clk,
+    input rst,
+
+    /* port a */
+    input [RADDRWIDTH-1:0] raddr_a,
+    output [REGWIDTH-1:0] rdata_a,
+
+    /* port b */
+    input [RADDRWIDTH-1:0] raddr_b,
+    output [REGWIDTH-1:0] rdata_b,
+
+    /* write port */
+    input we,
+    input [RADDRWIDTH-1:0] waddr,
+    input [REGWIDTH-1:0] wdata
 );
 
-int count = 0;
-reg rst = 1;
+parameter RADDRWIDTH = 3;
+parameter REGWIDTH = 16;
+
+reg [REGWIDTH-1:0] r[2**RADDRWIDTH];
+
+always_comb begin
+    if (raddr_a != 0)
+        rdata_a = r[raddr_a];
+    else
+        rdata_a = 0;
+
+    if (raddr_b != 0)
+        rdata_b = r[raddr_b];
+    else
+        rdata_b = 0;
+    $display("regread: [%d] = %x, [%d] = %x", raddr_a, rdata_a, raddr_b, rdata_b);
+end
 
 always_ff @(posedge clk) begin
-    count = count + 1;
-
-    if (count == 2) rst = 0;
-
-    if (count == 16) $finish;
-end
-
-wire [15:0] iaddr;
-wire [15:0] idata;
-
-cpu cpu0(
-    .clk(clk),
-    .rst(rst),
-
-    .iaddr(iaddr),
-    .idata(idata)
-);
-
-memory imem(
-    .clk(clk),
-    .rst(rst),
-
-    .raddr(iaddr),
-    .rdata(idata),
-
-    .we(0),
-    .waddr(0),
-    .wdata(0)
-);
-
-always @* begin
-    $display("count %d, rst %d, iaddr %h, idata %h", count, rst, iaddr, idata);
-end
-
-initial begin
-    $readmemh("../test.hex", imem.mem);
+    if (rst) begin
+        for (int i = 1; i < 2**RADDRWIDTH; i++)
+            r[i] = 0;
+    end else begin
+        if (we && r[waddr] != 0) begin
+            r[waddr] <= wdata;
+            $display("regwrite: [%d] = %x", waddr, wdata);
+        end
+    end
 end
 
 endmodule

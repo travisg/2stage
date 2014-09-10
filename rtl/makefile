@@ -2,6 +2,9 @@ BUILD := build
 TESTBENCH := $(BUILD)/testbench
 
 SRC := \
+	cpu.v \
+	memory.v \
+	regfile.v
 
 #SRC += ../lib/library.v
 SRC += testbench.v

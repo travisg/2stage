@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014 Travis Geiselbrecht
+ * Copyright (c) 2014 Travis Geiselbrecht
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
@@ -22,51 +22,38 @@
  */
 `timescale 1ns/1ns
 
-module testbench(
-    input clk
+module memory(
+    input clk,
+    input rst,
+
+    input [AWIDTH-1:0] raddr,
+    output reg [DWIDTH-1:0] rdata,
+
+    input we,
+    input [AWIDTH-1:0] waddr,
+    input [DWIDTH-1:0] wdata
 );
 
-int count = 0;
-reg rst = 1;
+parameter AWIDTH = 16;
+parameter DWIDTH = 16;
 
+reg [AWIDTH-1:0] raddr_reg;
+
+reg [DWIDTH-1:0] mem [2**DWIDTH-1:0];
+
+/* zero out or register the read */
 always_ff @(posedge clk) begin
-    count = count + 1;
+    if (rst) begin
+        rdata <= 0;
+    end else begin
+        rdata <= mem[raddr];
 
-    if (count == 2) rst = 0;
-
-    if (count == 16) $finish;
+        if (we) begin
+            mem[waddr] <= wdata;
+        end
+    end
 end
 
-wire [15:0] iaddr;
-wire [15:0] idata;
 
-cpu cpu0(
-    .clk(clk),
-    .rst(rst),
-
-    .iaddr(iaddr),
-    .idata(idata)
-);
-
-memory imem(
-    .clk(clk),
-    .rst(rst),
-
-    .raddr(iaddr),
-    .rdata(idata),
-
-    .we(0),
-    .waddr(0),
-    .wdata(0)
-);
-
-always @* begin
-    $display("count %d, rst %d, iaddr %h, idata %h", count, rst, iaddr, idata);
-end
-
-initial begin
-    $readmemh("../test.hex", imem.mem);
-end
 
 endmodule
-
