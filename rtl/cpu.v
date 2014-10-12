@@ -129,7 +129,6 @@ always_comb begin
     s2_to_s1_take_branch = 0;
     s2_to_s1_stall = 0;
     reg_writeback = 0;
-    alu_result = 16'bX;
     state_next = state;
     ir_next = s1_ifetch;
     mem_immediate_next = mem_immediate;
@@ -237,15 +236,20 @@ always_comb begin
         endcase
 
         // handle indirect d writebacks
-        if (reg_d_indirect && reg_writeback && reg_d != 0) begin
-            // once we've handled the read states (if any), start a write cycle
-            // note, this can overlap with the last cycle of a read
-            reg_writeback = 0;
-            we = 1;
-            waddr = reg_d_out;
-            wdata = alu_result;
-
-            // XXX handle [r0] being a branch
+        if (reg_d_indirect && reg_writeback) begin
+            if (reg_d != 0) begin
+                // once we've handled the read states (if any), start a write cycle
+                // note, this can overlap with the last cycle of a read
+                reg_writeback = 0;
+                we = 1;
+                waddr = reg_d_out;
+                wdata = alu_result;
+            end else begin
+                // reg_d == 0 is a special case, writes to the pc (branches)
+                reg_writeback = 0;
+                s2_pc_next = alu_result;
+                s2_to_s1_take_branch = 1;
+            end
         end
 
         $display("S2: ir %x, wb %d, alu rd %d, ra %d, rb %d", ir, reg_writeback, reg_d, reg_a, reg_b);
