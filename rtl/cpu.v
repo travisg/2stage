@@ -65,7 +65,7 @@ end
 
 always_ff @(posedge clk) begin
     if (rst) begin
-        pc <= 16'd-1;
+        pc <= 16'd-1; // causes the first instruction to be 0
     end else begin
         pc <= pc_next;
     end
@@ -80,6 +80,14 @@ reg [IADDRWIDTH-1:0] ir = 0;
 reg [IADDRWIDTH-1:0] ir_next;
 reg [15:0] mem_immediate;
 reg [15:0] mem_immediate_next;
+reg [3:0]  reg_cc;
+reg [3:0]  reg_cc_next;
+
+wire reg_cc_n = reg_cc[3];
+wire reg_cc_z = reg_cc[2];
+wire reg_cc_c = reg_cc[1];
+wire reg_cc_v = reg_cc[0];
+
 
 /* data memory unit */
 logic re;
@@ -90,18 +98,22 @@ logic [DWIDTH-1:0] wdata;
 
 /* decoder */
 wire [3:0] op = ir[15:12];
+wire [2:0] alu_op = ir[14:12];
 wire [2:0] reg_a = ir[11:9];
-wire reg_d_indirect = ir[8];;
+wire [3:0] branch_cc = ir[12:9];
+wire reg_d_indirect = ir[8];
 wire [2:0] reg_d = ir[7:5];
 wire [1:0] reg_b_addr_mode = ir[4:3];
 wire [2:0] reg_b = ir[2:0];
 wire [15:0] branch_offset = ir[8] ? { 7'b1111111, ir[8:0] } : { 7'b0, ir[8:0] };
-assign s2_pc_next = pc + branch_offset;
 
 logic [15:0] reg_a_out;
 logic [15:0] reg_b_out;
 logic [15:0] reg_d_out;
+logic [15:0] alu_a_in;
+logic [15:0] alu_b_in;
 logic [15:0] alu_result;
+logic [3:0] alu_cc;
 logic reg_writeback;
 
 typedef enum [1:0] {
@@ -121,6 +133,10 @@ always_comb begin
     state_next = state;
     ir_next = s1_ifetch;
     mem_immediate_next = mem_immediate;
+    reg_cc_next = reg_cc;
+    s2_pc_next = 16'bX;
+    alu_a_in = reg_a_out;
+    alu_b_in = 16'bX;
 
     re = 0;
     raddr = 0;
@@ -129,15 +145,41 @@ always_comb begin
     wdata = 0;
 
     casez (op)
-    4'b110?: begin // branch
-        s2_to_s1_take_branch = ir[12] ? (reg_a_out != 0) : (reg_a_out == 0);
+    4'b10??: begin // branch
+        s2_pc_next = pc + branch_offset;
+
+        /* check conditions */
+        case (branch_cc)
+            /* eq */ 4'b0000: s2_to_s1_take_branch = reg_cc_z;
+            /* ne */ 4'b0001: s2_to_s1_take_branch = !reg_cc_z;
+         /* cs|hs */ 4'b0010: s2_to_s1_take_branch = reg_cc_c;
+         /* cc|lo */ 4'b0011: s2_to_s1_take_branch = !reg_cc_c;
+            /* mi */ 4'b0100: s2_to_s1_take_branch = reg_cc_n;
+            /* pl */ 4'b0101: s2_to_s1_take_branch = !reg_cc_n;
+            /* vs */ 4'b0110: s2_to_s1_take_branch = reg_cc_v;
+            /* vc */ 4'b0111: s2_to_s1_take_branch = !reg_cc_v;
+            /* hi */ 4'b1000: s2_to_s1_take_branch = reg_cc_v && !reg_cc_z;
+            /* ls */ 4'b1001: s2_to_s1_take_branch = !reg_cc_v || reg_cc_z;
+            /* ge */ 4'b1010: s2_to_s1_take_branch = reg_cc_n == reg_cc_v;
+            /* lt */ 4'b1011: s2_to_s1_take_branch = reg_cc_n != reg_cc_v;
+            /* gt */ 4'b1100: s2_to_s1_take_branch = !reg_cc_z && (reg_cc_n == reg_cc_v);
+            /* le */ 4'b1101: s2_to_s1_take_branch = reg_cc_z || (reg_cc_n != reg_cc_v);
+            /* nv */ 4'b1110: s2_to_s1_take_branch = 0;
+            /* al */ 4'b1111: s2_to_s1_take_branch = 1;
+        endcase
+
+        if (ir[13]) begin // link
+            // XXX handle link
+        end
         $display("S2: ir %x, branch rd %d, offset %x, s2_pc_next %x, take branch %d", ir, reg_d, branch_offset, s2_pc_next, s2_to_s1_take_branch);
     end
-    4'b111?: begin // undefined
+    4'b11??: begin // undefined
     end
-    default: begin // alu op
+    4'b0???: begin // alu op
+        // alu ops writeback to cc always
+        reg_cc_next = alu_cc;
+
         // handle the 2nd operand
-        logic [15:0] alu_b_in;
         casez (reg_b_addr_mode)
             2'b0?: begin // 4 bit signed immediate
                 alu_b_in = ir[3] ? { 12'b111111111111, ir[3:0] } : { 12'b0, ir[3:0] };
@@ -193,23 +235,6 @@ always_comb begin
             end
         endcase
 
-        // do the alu op
-        case (op)
-            4'b0000: alu_result = reg_a_out + alu_b_in;
-            4'b0001: alu_result = reg_a_out - alu_b_in;
-            4'b0010: alu_result = reg_a_out & alu_b_in;
-            4'b0011: alu_result = reg_a_out | alu_b_in;
-            4'b0100: alu_result = reg_a_out ^ alu_b_in;
-            4'b0101: alu_result = reg_a_out << alu_b_in;
-            4'b0110: alu_result = reg_a_out >> alu_b_in;
-            4'b0111: alu_result = reg_a_out >>> alu_b_in; // XXX check
-            4'b1000: alu_result = (reg_a_out == alu_b_in) ? 1 : 0;
-            4'b1001: alu_result = (reg_a_out < alu_b_in) ? 1 : 0;
-            4'b1010: alu_result = (reg_a_out <= alu_b_in) ? 1 : 0;
-            default: ;
-        endcase
-        $display("S2: ir %x, wb %d, alu rd %d, ra %d, rb %d", ir, reg_writeback, reg_d, reg_a, reg_b);
-
         // handle indirect d writebacks
         if (reg_d_indirect && reg_writeback && reg_d != 0) begin
             // once we've handled the read states (if any), start a write cycle
@@ -221,6 +246,8 @@ always_comb begin
 
             // XXX handle [r0] being a branch
         end
+
+        $display("S2: ir %x, wb %d, alu rd %d, ra %d, rb %d", ir, reg_writeback, reg_d, reg_a, reg_b);
     end
     endcase
 
@@ -231,10 +258,12 @@ always_ff @(posedge clk) begin
         ir <= 0;
         state <= 0;
         mem_immediate <= 0;
+        reg_cc <= 0;
     end else begin
         ir <= ir_next;
         mem_immediate <= mem_immediate_next;
         state <= state_next;
+        reg_cc <= reg_cc_next;
     end
 end
 
@@ -255,6 +284,15 @@ regfile regs(
     .we(reg_writeback),
     .waddr(reg_d),
     .wdata(alu_result)
+);
+
+/* alu */
+alu alu(
+    .op(alu_op),
+    .a(alu_a_in),
+    .b(alu_b_in),
+    .result(alu_result),
+    .cc(alu_cc)
 );
 
 endmodule

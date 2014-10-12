@@ -1,6 +1,8 @@
 registers
 8 registers
 r0 == zero
+r7 == lr
+condition reg NZCV
 
 ops:
 0000 - add
@@ -11,13 +13,10 @@ ops:
 0101 - lsl
 0110 - lsr
 0111 - asr
-1000 - seq
-1001 - slt
-1010 - slte
 
-110x - branch
+10xx - branch
 
-111x - misc
+11xx - misc
 
 1111 110 0000 00000
 5432 109 8765 43210
@@ -29,16 +28,15 @@ OOOO AAA iDDD bbbbb
     d addressing mode
          0DDD       - register direct
          1DDD       - register indirect
+         1000       - program counter ([r0])
     b addressing mode
               0XXXX - immediate (4 bit signed)
-              10000 - next instruction
+              10000 - next instruction ([r0])
               10BBB - register direct
               11BBB - register indirect
 
 branch ops
-1100 AAA ooooooooo - bz  - conditional branch (branch if reg AAA == zero)
-1100 000 ooooooooo - b   - unconditional branch (r0 == zero)
-1101 AAA ooooooooo - bnz - conditional branch (branch if reg AAA != zero)
+10L CCCC ooooooooo - b(l)  - (un)conditional branch with optional link
 
          9 bit signed offset (-255/256)
 
@@ -57,3 +55,20 @@ special cases:
     access pc
         use [r0] as source
         mov r2, [r0]
+
+conditions (ARM style):
+eq          Equal.                                                      Z==1
+ne          Not equal.                                                  Z==0
+cs or hs    Unsigned higher or same (or carry set).                     C==1
+cc or lo    Unsigned lower (or carry clear).                            C==0
+mi          Negative. The mnemonic stands for "minus".                  N==1
+pl          Positive or zero. The mnemonic stands for "plus".           N==0
+vs          Signed overflow. The mnemonic stands for "V set".           V==1
+vc          No signed overflow. The mnemonic stands for "V clear".      V==0
+hi          Unsigned higher.                                            (C==1) && (Z==0)
+ls          Unsigned lower or same.                                     (C==0) || (Z==1)
+ge          Signed greater than or equal.                               N==V
+lt          Signed less than.                                           N!=V
+gt          Signed greater than.                                        (Z==0) && (N==V)
+le          Signed less than or equal.                                  (Z==1) || (N!=V)
+al (or omitted) Always executed.                                        None tested.
