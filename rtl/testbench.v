@@ -34,7 +34,7 @@ always_ff @(posedge clk) begin
 
     if (count == 2) rst = 0;
 
-    if (count == 16) $finish;
+    if (count == 20) $finish;
 end
 
 wire [15:0] iaddr;

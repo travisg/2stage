@@ -34,6 +34,10 @@ module regfile(
     input [RADDRWIDTH-1:0] raddr_b,
     output [REGWIDTH-1:0] rdata_b,
 
+    /* port c */
+    input [RADDRWIDTH-1:0] raddr_c,
+    output [REGWIDTH-1:0] rdata_c,
+
     /* write port */
     input we,
     input [RADDRWIDTH-1:0] waddr,
@@ -55,7 +59,12 @@ always_comb begin
         rdata_b = r[raddr_b];
     else
         rdata_b = 0;
-    $display("regread: [%d] = %x, [%d] = %x", raddr_a, rdata_a, raddr_b, rdata_b);
+
+    if (raddr_c != 0)
+        rdata_c = r[raddr_c];
+    else
+        rdata_c = 0;
+    $display("regread: [%d] = %x, [%d] = %x, [%d] = %x", raddr_a, rdata_a, raddr_b, rdata_b, raddr_c, rdata_c);
 end
 
 always_ff @(posedge clk) begin
@@ -63,7 +72,7 @@ always_ff @(posedge clk) begin
         for (int i = 1; i < 2**RADDRWIDTH; i++)
             r[i] = 0;
     end else begin
-        if (we && r[waddr] != 0) begin
+        if (we && waddr != 0) begin
             r[waddr] <= wdata;
             $display("regwrite: [%d] = %x", waddr, wdata);
         end

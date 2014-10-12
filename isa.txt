@@ -48,11 +48,11 @@ pseudo instructions:
     xor d, b    - xor d, b, #-1
 
 special cases:
-    branch to register, use r0 as target
-        mov r0, lr - branch to lr
+    branch to register, use [r0] as target
+        mov [r0], lr - branch to lr
 
     branch to fixed 16bit address
-        b #imm - mov r0, #imm
+        b #imm - mov [r0], #imm
 
     access pc
         use [r0] as source
