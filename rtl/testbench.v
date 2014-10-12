@@ -40,12 +40,28 @@ end
 wire [15:0] iaddr;
 wire [15:0] idata;
 
+wire [15:0] waddr;
+wire [15:0] wdata;
+wire we;
+
+wire [15:0] raddr;
+wire [15:0] rdata;
+wire re;
+
 cpu cpu0(
     .clk(clk),
     .rst(rst),
 
     .iaddr(iaddr),
-    .idata(idata)
+    .idata(idata),
+
+    .waddr(waddr),
+    .wdata(wdata),
+    .we(we),
+
+    .raddr(raddr),
+    .rdata(rdata),
+    .re(re)
 );
 
 memory imem(
@@ -54,10 +70,24 @@ memory imem(
 
     .raddr(iaddr),
     .rdata(idata),
+    .re(1),
 
-    .we(0),
     .waddr(0),
-    .wdata(0)
+    .wdata(0),
+    .we(0)
+);
+
+memory dmem(
+    .clk(clk),
+    .rst(rst),
+
+    .raddr(raddr),
+    .rdata(rdata),
+    .re(re),
+
+    .waddr(waddr),
+    .wdata(rdata),
+    .we(we)
 );
 
 always @* begin

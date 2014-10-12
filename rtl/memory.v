@@ -26,6 +26,7 @@ module memory(
     input clk,
     input rst,
 
+    input re,
     input [AWIDTH-1:0] raddr,
     output reg [DWIDTH-1:0] rdata,
 
@@ -46,7 +47,9 @@ always_ff @(posedge clk) begin
     if (rst) begin
         rdata <= 0;
     end else begin
-        rdata <= mem[raddr];
+        if (re) begin
+            rdata <= mem[raddr];
+        end
 
         if (we) begin
             mem[waddr] <= wdata;

@@ -28,35 +28,39 @@ module cpu(
     input rst,
 
     output [IADDRWIDTH-1:0] iaddr,
-    input  [IWIDTH-1:0] idata
+    input  [IWIDTH-1:0] idata,
 
+    output [DADDRWIDTH-1:0] waddr,
+    output [DWIDTH-1:0] wdata,
+    output we,
+
+    output [DADDRWIDTH-1:0] raddr,
+    input  [DWIDTH-1:0] rdata,
+    output re
 );
 
 localparam IADDRWIDTH = 16;
 localparam IWIDTH = 16;
+localparam DADDRWIDTH = 16;
+localparam DWIDTH = 16;
 
 /* first stage (instruction fetch) */
 reg [IADDRWIDTH-1:0] pc;
 logic [IADDRWIDTH-1:0] pc_next;
 logic [IADDRWIDTH-1:0] s1_ifetch;
 
-assign iaddr = pc;
+assign iaddr = pc_next;
 
 always_comb begin
-    pc_next = pc + 1; /* default to next instruction */
+    pc_next = s2_to_s1_take_branch ? s2_pc_next : pc + 1; /* default to next instruction */
     s1_ifetch = idata; /* default to whatever is coming back on the instruction bus */
 end
 
 always_ff @(posedge clk) begin
     if (rst) begin
-        pc <= 0;
-        ir <= 0;
+        pc <= 16'd-1;
     end else begin
-        if (s2_to_s1_take_branch) begin
-            pc <= s2_pc_next;
-        end else begin
-            pc <= pc_next;
-        end
+        pc <= pc_next;
     end
 end
 
@@ -66,6 +70,16 @@ end
 
 /* second stage */
 reg [IADDRWIDTH-1:0] ir = 0;
+reg [IADDRWIDTH-1:0] ir_next;
+reg [15:0] ir_immediate;
+reg [15:0] ir_immediate_next;
+
+/* data memory unit */
+reg re = 0;
+reg [DADDRWIDTH-1:0] raddr = 0;
+reg we = 0;
+reg [DADDRWIDTH-1:0] waddr = 0;
+reg [DWIDTH-1:0] wdata = 0;
 
 /* decoder */
 wire [3:0] op = ir[15:12];
@@ -84,12 +98,22 @@ logic [15:0] reg_b_out;
 logic [15:0] alu_result;
 logic reg_writeback;
 
+typedef enum {
+    DECODE,
+    IR_IMMEDIATE
+} state_t;
+state_t state = DECODE;
+state_t state_next;
+
 always_comb begin
     s2_pc_next = 16'bX;
     s2_to_s1_take_branch = 0;
     reg_writeback = 0;
     alu_result = 16'bX;
     branch_offset = ir[8] ? { 7'b1111111, ir[8:0] } : { 7'b0, ir[8:0] };
+    state_next = state;
+    ir_next = s1_ifetch;
+    ir_immediate_next = ir_immediate;
 
     casez (op)
     4'b110?: begin // branch
@@ -102,15 +126,26 @@ always_comb begin
     default: begin // alu op
         // handle the 2nd operand
         logic [15:0] alu_b_in;
+        reg_writeback = 1;
         casez (reg_b_addr_mode)
             2'b0?: begin // 4 bit signed immediate
                 alu_b_in = ir[3] ? { 12'b111111111111, ir[3:0] } : { 12'b0, ir[3:0] };
             end
             2'b10: begin
-                if (reg_b == 0)
-                    alu_b_in = 0; // XXX next instruction fetch handle
-                else
+                if (reg_b == 0) begin
+                    if (state_next == IR_IMMEDIATE) begin
+                        state_next = DECODE;
+                    end else begin
+                        // wait one cycle for the next blob of data from stage1 instruction fetcher
+                        state_next = IR_IMMEDIATE;
+                        reg_writeback = 0;
+                        ir_next = ir;
+                        ir_immediate_next = s1_ifetch;
+                    end
+                    alu_b_in = ir_immediate;
+                end else begin
                     alu_b_in = reg_b_out;
+                end
             end
             2'b11: begin // XXX register b indirect, handle
                 alu_b_in = 0;
@@ -132,7 +167,6 @@ always_comb begin
             4'b1010: alu_result = (reg_a_out <= alu_b_in) ? 1 : 0;
             default: ;
         endcase
-        reg_writeback = 1;
         $display("S2: ir %x, wb %d, alu rd %d, ra %d, rb %d", ir, reg_writeback, reg_d, reg_a, reg_b);
     end
     endcase
@@ -141,7 +175,15 @@ always_comb begin
 end
 
 always_ff @(posedge clk) begin
-    ir <= s1_ifetch;
+    if (rst) begin
+        ir <= 0;
+        state <= 0;
+        ir_immediate <= 0;
+    end else begin
+        ir <= ir_next;
+        ir_immediate <= ir_immediate_next;
+        state <= state_next;
+    end
 end
 
 /* register file */
