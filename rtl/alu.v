@@ -29,7 +29,7 @@ module alu(
     input [WIDTH-1:0] b,
     output reg [WIDTH-1:0] result,
 
-    output reg [3:0] cc
+    output [3:0] cc
 );
 
 parameter WIDTH = 16;
@@ -38,8 +38,14 @@ wire a_neg = a[WIDTH-1];
 wire b_neg = b[WIDTH-1];
 wire result_neg = result[WIDTH-1];
 
-always_comb begin
+/* set conditions */
+assign cc[3] = result_neg;
+assign cc[2] = result == 16'b0;
+assign cc[1] = (a_neg & b_neg) || // both operands are negative or
+    ((a_neg ^ b_neg) && !result_neg); // one of the operands is negative, and the result is positive
+assign cc[0] = !(a_neg ^ b_neg) && (a_neg ^ result_neg);
 
+always_comb begin
     /* do the op */
     case (op)
         3'b000: result = a + b;
@@ -51,13 +57,6 @@ always_comb begin
         3'b110: result = a >> b;
         3'b111: result = $signed(a) >>> b; // XXX check
     endcase
-
-    /* set conditions */
-    cc[3] = result_neg;
-    cc[2] = result == 16'b0;
-    cc[1] = (a_neg & b_neg) || // both operands are negative or
-        ((a_neg ^ b_neg) && !result_neg); // one of the operands is negative, and the result is positive
-    cc[0] = !(a_neg ^ b_neg) && (a_neg ^ result_neg);
 end
 
 endmodule

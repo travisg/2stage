@@ -47,7 +47,7 @@ module regfile(
 parameter RADDRWIDTH = 3;
 parameter REGWIDTH = 16;
 
-reg [REGWIDTH-1:0] r[2**RADDRWIDTH];
+reg [REGWIDTH-1:0] r[2**RADDRWIDTH-1:1];
 
 always_comb begin
     if (raddr_a != 0)
