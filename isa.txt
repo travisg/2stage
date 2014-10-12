@@ -1,0 +1,58 @@
+
+registers
+8 registers
+r0 == zero
+
+1111110000000000
+5432109876543210
+----------------
+
+ops:
+0000 - add
+0001 - sub
+0010 - and
+0011 - or
+0100 - xor
+0101 - lsl
+0110 - lsr
+0111 - asr
+1000 - seq
+1001 - slt
+1010 - slte
+
+110x - branch
+
+1110 - misc
+1111 - misc
+
+alu ops:
+OOOO AAA DDD bbbbbb
+
+    b addressing mode
+             000BBB - register direct
+             010BBB - register indirect
+             011XXX - next instruction word
+             1XXXXX - immediate (5 bit signed)
+
+branch ops
+1100 AAA ooooooooo - bz  - conditional branch (branch if reg AAA == zero)
+1100 000 ooooooooo - b   - unconditional branch (r0 == zero)
+1101 AAA ooooooooo - bnz - conditional branch (branch if reg AAA != zero)
+
+         9 bit signed offset (-255/256)
+
+pseudo instructions:
+    mov d, b    - add d, r0, b
+    neg d, b    - sub d, r0, b
+    xor d, b    - xor d, b, #-1
+
+special cases:
+    branch to register, use r0 as target
+        mov r0, lr - branch to lr
+
+    branch to fixed 16bit address
+        b #imm - mov r0, #imm
+
+    access pc
+        use [r0] as source
+        mov r2, [r0]
