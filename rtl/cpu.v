@@ -72,7 +72,7 @@ always_ff @(posedge clk) begin
 end
 
 always begin
-    $display("S1: pc %x, pc_next %x, ir %x", pc, pc_next, ir);
+    //$display("S1: pc %x, pc_next %x, ir %x", pc, pc_next, ir);
 end
 
 /* second stage */
@@ -170,7 +170,7 @@ always_comb begin
         if (ir[13]) begin // link
             // XXX handle link
         end
-        $display("S2: ir %x, branch rd %d, offset %x, s2_pc_next %x, take branch %d", ir, reg_d, branch_offset, s2_pc_next, s2_to_s1_take_branch);
+        //$display("S2: ir %x, branch rd %d, offset %x, s2_pc_next %x, take branch %d", ir, reg_d, branch_offset, s2_pc_next, s2_to_s1_take_branch);
     end
     4'b11??: begin // undefined
     end
@@ -186,52 +186,64 @@ always_comb begin
                 if (reg_b == 0) begin
                     // special case: Rb == 0. The instruction wants us to load the next word in the
                     // instruction stream as an immediate.
-                    if (state == DECODE) begin
-                        // wait one cycle for the next word of data from stage1 instruction fetcher
-                        state_next = IR_IMMEDIATE;
-                        reg_writeback = 0;
-                        ir_next = ir;
-                        mem_immediate_next = s1_ifetch;
-                    end else begin
-                        // we've already waited a cycle, so go back to regular DECODE
-                        state_next = DECODE;
-                        reg_writeback = 1;
-                        reg_cc_next = alu_cc;
-                    end
-                    alu_b_in = mem_immediate;
+                    case (state)
+                        DECODE: begin
+                            // wait one cycle for the next word of data from stage1 instruction fetcher
+                            state_next = IR_IMMEDIATE;
+                            ir_next = ir;
+                            mem_immediate_next = s1_ifetch;
+                        end
+                        IR_IMMEDIATE: begin
+                            // we've already waited a cycle, so go back to regular DECODE
+                            state_next = DECODE;
+                            reg_writeback = 1;
+                            reg_cc_next = alu_cc;
+                            alu_b_in = mem_immediate;
+                        end
+                        default: ;
+                    endcase
                 end else begin
+                    // normal case where Rb is treated as a register
                     alu_b_in = reg_b_out;
                     reg_writeback = 1;
                     reg_cc_next = alu_cc;
                 end
             end
             2'b11: begin // register b indirect
-                alu_b_in = mem_immediate;
-                // start a 2 stage read operation
-                case (state)
-                    DECODE: begin
-                        // put the address and data out on the bus
-                        state_next = LOAD1;
-                        raddr = reg_b_out;
-                        re = 1;
-                        ir_next = ir;
-                        s2_to_s1_stall = 1;
-                    end
-                    LOAD1: begin
-                        // let it sit for a clock for the external memory to respond
-                        mem_immediate_next = rdata;
-                        state_next = LOAD2;
-                        ir_next = ir;
-                        s2_to_s1_stall = 1;
-                    end
-                    LOAD2: begin
-                        // we should have it now, go back to regular decode
-                        state_next = DECODE;
-                        reg_cc_next = alu_cc;
-                        reg_writeback = 1;
-                    end
-                    default: ;
-                endcase
+                if (reg_b == 0) begin
+                    // special case, Rb == 0, indirect
+                    // return PC
+                    alu_b_in = pc;
+                    reg_writeback = 1;
+                    reg_cc_next = alu_cc;
+                end else begin
+                    // start a 2 stage read operation
+                    case (state)
+                        DECODE: begin
+                            // put the address and data out on the bus
+                            state_next = LOAD1;
+                            raddr = reg_b_out;
+                            re = 1;
+                            ir_next = ir;
+                            s2_to_s1_stall = 1;
+                        end
+                        LOAD1: begin
+                            // let it sit for a clock for the external memory to respond
+                            mem_immediate_next = rdata;
+                            state_next = LOAD2;
+                            ir_next = ir;
+                            s2_to_s1_stall = 1;
+                        end
+                        LOAD2: begin
+                            // we should have it now, go back to regular decode
+                            state_next = DECODE;
+                            reg_cc_next = alu_cc;
+                            reg_writeback = 1;
+                            alu_b_in = mem_immediate;
+                        end
+                        default: ;
+                    endcase
+                end
             end
         endcase
 
@@ -252,7 +264,7 @@ always_comb begin
             end
         end
 
-        $display("S2: ir %x, wb %d, alu rd %d, ra %d, rb %d", ir, reg_writeback, reg_d, reg_a, reg_b);
+        //$display("S2: ir %x, wb %d, alu rd %d, ra %d, rb %d", ir, reg_writeback, reg_d, reg_a, reg_b);
     end
     endcase
 

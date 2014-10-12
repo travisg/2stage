@@ -31,8 +31,9 @@ OOOO AAA iDDD bbbbb
          1000       - program counter ([r0])
     b addressing mode
               0XXXX - immediate (4 bit signed)
-              10000 - next instruction ([r0])
+              10000 - next instruction (r0)
               10BBB - register direct
+              11000 - program counter [r0]
               11BBB - register indirect
 
 branch ops
