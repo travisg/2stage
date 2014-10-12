@@ -27,12 +27,16 @@ module alu(
 
     input [WIDTH-1:0] a,
     input [WIDTH-1:0] b,
-    output [WIDTH-1:0] result,
+    output reg [WIDTH-1:0] result,
 
-    output [3:0] cc
+    output reg [3:0] cc
 );
 
 parameter WIDTH = 16;
+
+wire a_neg = a[WIDTH-1];
+wire b_neg = b[WIDTH-1];
+wire result_neg = result[WIDTH-1];
 
 always_comb begin
 
@@ -49,11 +53,11 @@ always_comb begin
     endcase
 
     /* set conditions */
-    cc[3] = result[WIDTH-1];
+    cc[3] = result_neg;
     cc[2] = result == 16'b0;
-    cc[1] = (a[WIDTH-1] & b[WIDTH-1]) || // both operands are negative or
-        ((a[WIDTH-1] ^ b[WIDTH-1]) && !result[WIDTH-1]); // one of the operands is negative, and the result is positive
-    cc[0] = !(a[WIDTH-1] ^ b[WIDTH-1]) && (a[WIDTH-1] ^ result[WIDTH-1]);
+    cc[1] = (a_neg & b_neg) || // both operands are negative or
+        ((a_neg ^ b_neg) && !result_neg); // one of the operands is negative, and the result is positive
+    cc[0] = !(a_neg ^ b_neg) && (a_neg ^ result_neg);
 end
 
 endmodule

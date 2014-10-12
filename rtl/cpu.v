@@ -176,14 +176,12 @@ always_comb begin
     4'b11??: begin // undefined
     end
     4'b0???: begin // alu op
-        // alu ops writeback to cc always
-        reg_cc_next = alu_cc;
-
         // handle the 2nd operand
         casez (reg_b_addr_mode)
             2'b0?: begin // 4 bit signed immediate
                 alu_b_in = ir[3] ? { 12'b111111111111, ir[3:0] } : { 12'b0, ir[3:0] };
                 reg_writeback = 1;
+                reg_cc_next = alu_cc;
             end
             2'b10: begin // register b
                 if (reg_b == 0) begin
@@ -199,11 +197,13 @@ always_comb begin
                         // we've already waited a cycle, so go back to regular DECODE
                         state_next = DECODE;
                         reg_writeback = 1;
+                        reg_cc_next = alu_cc;
                     end
                     alu_b_in = mem_immediate;
                 end else begin
                     alu_b_in = reg_b_out;
                     reg_writeback = 1;
+                    reg_cc_next = alu_cc;
                 end
             end
             2'b11: begin // register b indirect
@@ -228,6 +228,7 @@ always_comb begin
                     LOAD2: begin
                         // we should have it now, go back to regular decode
                         state_next = DECODE;
+                        reg_cc_next = alu_cc;
                         reg_writeback = 1;
                     end
                     default: ;
