@@ -1,0 +1,16 @@
+0000 add
+0001 sub
+0010 and
+0011 or
+0100 xor
+0101 lsl
+0110 lsr
+0111 asr
+1000 b
+1001 b
+1010 bl
+1011 bl
+1100 misc
+1101 misc
+1110 misc
+1111 misc
