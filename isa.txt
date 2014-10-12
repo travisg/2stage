@@ -1,11 +1,6 @@
-
 registers
 8 registers
 r0 == zero
-
-1111110000000000
-5432109876543210
-----------------
 
 ops:
 0000 - add
@@ -22,17 +17,23 @@ ops:
 
 110x - branch
 
-1110 - misc
-1111 - misc
+111x - misc
+
+1111 110 0000 00000
+5432 109 8765 43210
+-------------------
 
 alu ops:
-OOOO AAA DDD bbbbbb
+OOOO AAA iDDD bbbbb
 
+    d addressing mode
+         0DDD       - register direct
+         1DDD       - register indirect
     b addressing mode
-             000BBB - register direct
-             010BBB - register indirect
-             011XXX - next instruction word
-             1XXXXX - immediate (5 bit signed)
+              0XXXX - immediate (4 bit signed)
+              10000 - next instruction
+              10BBB - register direct
+              11BBB - register indirect
 
 branch ops
 1100 AAA ooooooooo - bz  - conditional branch (branch if reg AAA == zero)
