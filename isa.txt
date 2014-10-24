@@ -18,25 +18,26 @@ ops:
 
 11xx - misc
 
-1111 110 0000 00000
-5432 109 8765 43210
+1111 1100 000 00000
+5432 1098 765 43210
 -------------------
 
 alu ops:
-OOOO AAA iDDD bbbbb
+OOOO iDDD AAA bbbbb
 
     d addressing mode
-         0DDD       - register direct
-         1DDD       - register indirect
-         1000       - program counter ([r0])
+     0DDD           - register direct
+     1DDD           - register indirect
+     0000           - dest is r0, throw away result
+     1000           - program counter [r0]
     b addressing mode
               0XXXX - immediate (4 bit signed)
-              10000 - next instruction (r0)
+              10000 - immediate is next instruction word (r0) (16 bit signed)
               10BBB - register direct
-              11000 - program counter [r0]
+              11000 - program counter [r0] (pc reads as +1 current instruction)
               11BBB - register indirect
 
-branch ops
+branch ops:
 10L CCCC ooooooooo - b(l)  - (un)conditional branch with optional link
 
          9 bit signed offset (-255/256)
@@ -44,7 +45,11 @@ branch ops
 pseudo instructions:
     mov d, b    - add d, r0, b
     neg d, b    - sub d, r0, b
-    xor d, b    - xor d, b, #-1
+    not d, a    - xor d, a, #-1
+    teq a, b    - xor r0, a, b
+    tst a, b    - and r0, a, b
+    cmp a, b    - sub r0, a, b
+    cmn a, b    - add r0, a, b
 
 special cases:
     branch to register, use [r0] as target
@@ -53,23 +58,30 @@ special cases:
     branch to fixed 16bit address
         b #imm - mov [r0], #imm
 
-    access pc
+    indirect branch to register
+        b reg  - mov [r0], reg
+
+    double indirect branch to register
+        b reg  - mov [r0], [reg]
+
+    access pc (pc reads as +1)
         use [r0] as source
         mov r2, [r0]
 
 conditions (ARM style):
-eq          Equal.                                                      Z==1
-ne          Not equal.                                                  Z==0
-cs or hs    Unsigned higher or same (or carry set).                     C==1
-cc or lo    Unsigned lower (or carry clear).                            C==0
-mi          Negative. The mnemonic stands for "minus".                  N==1
-pl          Positive or zero. The mnemonic stands for "plus".           N==0
-vs          Signed overflow. The mnemonic stands for "V set".           V==1
-vc          No signed overflow. The mnemonic stands for "V clear".      V==0
-hi          Unsigned higher.                                            (C==1) && (Z==0)
-ls          Unsigned lower or same.                                     (C==0) || (Z==1)
-ge          Signed greater than or equal.                               N==V
-lt          Signed less than.                                           N!=V
-gt          Signed greater than.                                        (Z==0) && (N==V)
-le          Signed less than or equal.                                  (Z==1) || (N!=V)
-al (or omitted) Always executed.                                        None tested.
+0000 eq          Equal.                                                      Z==1
+0001 ne          Not equal.                                                  Z==0
+0010 cs or hs    Unsigned higher or same (or carry set).                     C==1
+0011 cc or lo    Unsigned lower (or carry clear).                            C==0
+0100 mi          Negative. The mnemonic stands for "minus".                  N==1
+0101 pl          Positive or zero. The mnemonic stands for "plus".           N==0
+0110 vs          Signed overflow. The mnemonic stands for "V set".           V==1
+0111 vc          No signed overflow. The mnemonic stands for "V clear".      V==0
+1000 hi          Unsigned higher.                                            (C==1) && (Z==0)
+1001 ls          Unsigned lower or same.                                     (C==0) || (Z==1)
+1010 ge          Signed greater than or equal.                               N==V
+1011 lt          Signed less than.                                           N!=V
+1100 gt          Signed greater than.                                        (Z==0) && (N==V)
+1101 le          Signed less than or equal.                                  (Z==1) || (N!=V)
+1110 nv          never                                                       possible extention area
+1111 al (or omitted) Always executed.

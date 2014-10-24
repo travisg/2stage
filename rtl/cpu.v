@@ -99,12 +99,13 @@ logic [DWIDTH-1:0] wdata;
 /* decoder */
 wire [3:0] op = ir[15:12];
 wire [2:0] alu_op = ir[14:12];
-wire [2:0] reg_a = ir[11:9];
-wire [3:0] branch_cc = ir[12:9];
-wire reg_d_indirect = ir[8];
-wire [2:0] reg_d = ir[7:5];
+wire reg_d_indirect = ir[11];
+wire [2:0] reg_d = ir[10:8];
+wire [2:0] reg_a = ir[7:5];
 wire [1:0] reg_b_addr_mode = ir[4:3];
 wire [2:0] reg_b = ir[2:0];
+
+wire [3:0] branch_cc = ir[12:9];
 wire [15:0] branch_offset = ir[8] ? { 7'b1111111, ir[8:0] } : { 7'b0, ir[8:0] };
 
 logic [15:0] reg_a_out;
@@ -278,8 +279,8 @@ always_ff @(posedge clk) begin
         reg_cc <= 0;
     end else begin
         ir <= ir_next;
-        mem_immediate <= mem_immediate_next;
         state <= state_next;
+        mem_immediate <= mem_immediate_next;
         reg_cc <= reg_cc_next;
     end
 end
