@@ -34,7 +34,7 @@ always_ff @(posedge clk) begin
 
     if (count == 2) rst = 0;
 
-    if (count == 20) $finish;
+    if (count == 25) $finish;
 end
 
 wire [15:0] iaddr;
@@ -86,7 +86,7 @@ memory dmem(
     .re(re),
 
     .waddr(waddr),
-    .wdata(rdata),
+    .wdata(wdata),
     .we(we)
 );
 

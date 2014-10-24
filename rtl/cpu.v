@@ -47,6 +47,7 @@ localparam DWIDTH = 16;
 /* first stage (instruction fetch) */
 reg [IADDRWIDTH-1:0] pc;
 logic [IADDRWIDTH-1:0] pc_next;
+logic [IADDRWIDTH-1:0] pc_plusone = pc + 1;
 logic [IADDRWIDTH-1:0] s1_ifetch;
 logic s2_to_s1_take_branch;
 logic s2_to_s1_stall;
@@ -58,7 +59,7 @@ always_comb begin
     if (s2_to_s1_stall) begin
         pc_next = pc;
     end else begin
-        pc_next = s2_to_s1_take_branch ? s2_pc_next : pc + 1; /* default to next instruction */
+        pc_next = s2_to_s1_take_branch ? s2_pc_next : pc_plusone; /* default to next instruction */
     end
     s1_ifetch = idata; /* default to whatever is coming back on the instruction bus */
 end
@@ -105,8 +106,8 @@ wire [2:0] reg_a = ir[7:5];
 wire [1:0] reg_b_addr_mode = ir[4:3];
 wire [2:0] reg_b = ir[2:0];
 
-wire [3:0] branch_cc = ir[12:9];
-wire [15:0] branch_offset = ir[8] ? { 7'b1111111, ir[8:0] } : { 7'b0, ir[8:0] };
+wire [3:0] branch_cc = ir[13:10];
+wire [15:0] branch_offset = ir[9] ? { 6'b111111, ir[9:0] } : { 6'b0, ir[9:0] };
 
 logic [15:0] reg_a_out;
 logic [15:0] reg_b_out;
@@ -135,18 +136,21 @@ always_comb begin
     mem_immediate_next = mem_immediate;
     reg_cc_next = reg_cc;
     s2_pc_next = 16'bX;
-    alu_a_in = reg_a_out;
+    alu_a_in = 16'bX;
     alu_b_in = 16'bX;
 
     re = 0;
-    raddr = 0;
+    raddr = 16'bX;
     we = 0;
-    waddr = 0;
-    wdata = 0;
+    waddr = 16'bX;
+    wdata = 16'bX;
 
     casez (op)
     4'b10??: begin // branch
         s2_pc_next = pc + branch_offset;
+
+        // kill the branch delay slot by inserting a nop
+        ir_next = 16'b0;
 
         /* check conditions */
         case (branch_cc)
@@ -167,15 +171,13 @@ always_comb begin
             /* nv */ 4'b1110: s2_to_s1_take_branch = 0;
             /* al */ 4'b1111: s2_to_s1_take_branch = 1;
         endcase
-
-        if (ir[13]) begin // link
-            // XXX handle link
-        end
         //$display("S2: ir %x, branch rd %d, offset %x, s2_pc_next %x, take branch %d", ir, reg_d, branch_offset, s2_pc_next, s2_to_s1_take_branch);
     end
     4'b11??: begin // undefined
     end
     4'b0???: begin // alu op
+        alu_a_in = reg_a_out;
+
         // handle the 2nd operand
         casez (reg_b_addr_mode)
             2'b0?: begin // 4 bit signed immediate
@@ -213,8 +215,8 @@ always_comb begin
             2'b11: begin // register b indirect
                 if (reg_b == 0) begin
                     // special case, Rb == 0, indirect
-                    // return PC
-                    alu_b_in = pc;
+                    // return PC + 2 (it's already +1 from the instruction after the one we're on)
+                    alu_b_in = pc_plusone;
                     reg_writeback = 1;
                     reg_cc_next = alu_cc;
                 end else begin
@@ -262,6 +264,14 @@ always_comb begin
                 reg_writeback = 0;
                 s2_pc_next = alu_result;
                 s2_to_s1_take_branch = 1;
+
+                // kill condition updates on branches
+                reg_cc_next = reg_cc;
+
+                // kill the branch delay slot by inserting a nop
+                // only do it if it's the last phase in this instruction
+                if (state_next == DECODE)
+                    ir_next = 16'b0;
             end
         end
 

@@ -2,6 +2,7 @@ registers
 8 registers
 r0 == zero
 r7 == lr
+pc == [r0]
 condition reg NZCV
 
 ops:
@@ -34,13 +35,13 @@ OOOO iDDD AAA bbbbb
               0XXXX - immediate (4 bit signed)
               10000 - immediate is next instruction word (r0) (16 bit signed)
               10BBB - register direct
-              11000 - program counter [r0] (pc reads as +1 current instruction)
+              11000 - program counter [r0] (pc reads as +2 current instruction)
               11BBB - register indirect
 
 branch ops:
-10L CCCC ooooooooo - b(l)  - (un)conditional branch with optional link
+10 CCCC oooooooooo  - b  - (un)conditional branch
 
-         9 bit signed offset (-255/256)
+         10 bit signed offset (-511/512)
 
 pseudo instructions:
     mov d, b    - add d, r0, b
@@ -64,9 +65,8 @@ special cases:
     double indirect branch to register
         b reg  - mov [r0], [reg]
 
-    access pc (pc reads as +1)
-        use [r0] as source
-        mov r2, [r0]
+    access pc (pc reads as +2) use [r0] as source
+        mov lr, pc - mov r7, [r0]
 
 conditions (ARM style):
 0000 eq          Equal.                                                      Z==1
