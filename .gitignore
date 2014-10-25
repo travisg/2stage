@@ -7,3 +7,6 @@ cscope.out
 local.mk
 *.bin
 *.lst
+*.pyc
+*.out
+parsetab.py
