@@ -47,6 +47,8 @@ pseudo instructions:
     mov d, b    - add d, r0, b
     neg d, b    - sub d, r0, b
     not d, a    - xor d, a, #-1
+    neg d       - sub d, r0, d
+    not d       - sub d, r0, d
     teq a, b    - xor r0, a, b
     tst a, b    - and r0, a, b
     cmp a, b    - sub r0, a, b

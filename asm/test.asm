@@ -2,6 +2,7 @@ start:
     ; catch all of the addressing modes
     add r1, r2
     add r1, r2, r3
+    add r1
     add r1, #1234
     add r1, #0x1234
     add r1, r2, #1234
@@ -9,8 +10,18 @@ start:
     add [r0], [r2]
     add lr, sp, pc
     add [lr], [sp]
+    mov lr, pc
+    mov r1
+    mov r1, r2
+    not r1
+    not r1, r2
+    tst r3, r2
+    tst r3
     b   r1
     b   #1234
+    b   start   ; a label it has seen
+    b   end     ; a label is has not seen
+    nop
 
     ; get all the instructions
     add r1, r2
@@ -31,19 +42,34 @@ start:
     cmp r1, r2
     cmn r1, r2
 
-    beq r1
-    bne r1
-    bcs r1
-    bhs r1
-    bcc r1
-    blo r1
-    bmi r1
-    bpl r1
-    bvs r1
-    bvc r1
-    bhi r1
-    bls r1
-    bge r1
-    blt r1
-    bgt r1
-    ble r1
+    beq #99
+    bne #99
+    bcs #99
+    bhs #99
+    bcc #99
+    blo #99
+    bmi #99
+    bpl #99
+    bvs #99
+    bvc #99
+    bhi #99
+    bls #99
+    bge #99
+    blt #99
+    bgt #99
+    ble #99
+
+    ; test the immediate range
+    add r1, #0
+    add r1, #1
+    add r1, #7
+    add r1, #8
+    add r1, #9
+    add r1, #-1
+    add r1, #-7
+    add r1, #-8
+end:
+
+    ; some directives
+.word   #123
+.barf

@@ -1,4 +1,5 @@
-# vim: ts=4 sw=4 expandtab:
+
+codegen = None
 
 # lexer
 tokens = (
@@ -60,14 +61,14 @@ def t_DIRECTIVE(t):
 
 def t_HEXNUM(t):
     r'\#0[xX][A-Fa-f0-9]+'
-    t.value = int(t.value[3:], 16)
+    t.value = ('NUMBER', int(t.value[3:], 16))
     #print "hexnum %s" % t
     t.type = 'NUM'
     return t
 
 def t_NUM(t):
     r'\#-?\d+'
-    t.value = int(t.value[1:])
+    t.value = ('NUMBER', int(t.value[1:]))
     #print "num %s" % t
     return t
 
@@ -75,23 +76,19 @@ def t_REGISTER(t):
     r'[rR]\d|\[[rR]\d\]|sp|\[sp\]|lr|\[lr\]|pc'
 
     if t.value == 'sp':
-        t.value = 6;
+        t.value = ('REGISTER', 6);
     elif t.value == '[sp]':
-        t.value = 6;
-        t.indirect = True
+        t.value = ('REGISTER_INDIRECT', 6);
     elif t.value == 'lr':
-        t.value = 7;
+        t.value = ('REGISTER', 7);
     elif t.value == '[lr]':
-        t.value = 7;
-        t.indirect = True
+        t.value = ('REGISTER_INDIRECT', 7);
     elif t.value == 'pc':
-        t.value = 0;
-        t.indirect = True
+        t.value = ('REGISTER_INDIRECT', 0);
     elif t.value[0] == '[':
-        t.value = int(t.value[2:3])
-        t.indirect = True
+        t.value = ('REGISTER_INDIRECT', int(t.value[2:3]))
     else:
-        t.value = int(t.value[1:2])
+        t.value = ('REGISTER', int(t.value[1:2]))
 
     #print "register %s" % t
     return t
@@ -101,6 +98,8 @@ def t_ID(t):
 
     if t.value in INSTRUCTIONS:
         t.type = 'INSTRUCTION'
+    else:
+        t.value = ('ID', t.value)
 
     #print "id %s" % t
     return t
@@ -132,7 +131,8 @@ def p_expr(p):
 
 def p_label(p):
     '''label        : ID ':' '''
-    print "parser label %s" % p[1]
+    print "parser label %s" % str(p[1])
+    codegen.add_label(p[1])
 
 def p_instruction(p):
     '''instruction  : instruction_3addr
@@ -145,22 +145,26 @@ def p_instruction_3addr(p):
                             | INSTRUCTION REGISTER ',' REGISTER ',' NUM
                             | INSTRUCTION REGISTER ',' REGISTER ',' ID'''
     print "parser instruction 3addr %s" % p[1]
+    codegen.add_instruction((p[1], p[2], p[4], p[6]))
 
 def p_instruction_2addr(p):
     '''instruction_2addr    : INSTRUCTION REGISTER ',' NUM
                             | INSTRUCTION REGISTER ',' REGISTER
                             | INSTRUCTION REGISTER ',' ID'''
     print "parser instruction 2addr %s" % p[1]
+    codegen.add_instruction((p[1], p[2], p[4]))
 
 def p_instruction_1addr(p):
     '''instruction_1addr    : INSTRUCTION REGISTER
                             | INSTRUCTION NUM
                             | INSTRUCTION ID'''
     print "parser instruction 1addr %s" % p[1]
+    codegen.add_instruction((p[1], p[2]))
 
 def p_instruction_0addr(p):
     '''instruction_0addr    : INSTRUCTION'''
     print "parser instruction 0addr %s" % p[1]
+    codegen.add_instruction((p[1], ))
 
 def p_directive(p):
     '''directive            : DIRECTIVE
@@ -168,6 +172,10 @@ def p_directive(p):
                             | DIRECTIVE STRING
                             | DIRECTIVE NUM'''
     print "parser directive %s" % p[1]
+    if len(p) == 3:
+        codegen.add_directive((p[1], p[2]))
+    else:
+        codegen.add_directive((p[1], ))
 
 #def p_emtpy(p):
     #'empty : '
@@ -179,4 +187,6 @@ def p_error(p):
 
 import ply.yacc as yacc
 yacc.yacc()
+
+# vim: ts=4 sw=4 expandtab:
 
