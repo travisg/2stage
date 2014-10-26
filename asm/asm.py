@@ -14,8 +14,13 @@ def main():
     for line in infile:
         lexparse.yacc.parse(line,debug=False)
 
+    print "processing fixups"
+    code.handle_fixups()
+
     print "dumping instructions:"
     code.dump_instructions()
+    print "dumping symbols:"
+    code.dump_symbols()
 
 if __name__ == "__main__":
     main()

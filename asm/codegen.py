@@ -59,17 +59,32 @@ opcode_table = {
     'cmn': IFormat(0x0000, ITYPE_ALU, ATYPE_AB), # add
 }
 
+FIXUP_TYPE_NONE = 0
+FIXUP_TYPE_SHORT_BRANCH = 1
+FIXUP_TYPE_LONG_BRANCH = 2
+
 class Instruction:
-    def __init__(self):
-        self.op = 0
-        self.op2 = 0
-        self.op_length = 1
-        self.addr = 0
-        self.string = ""
-        return
+    op = 0
+    op2 = 0
+    op_length = 1
+    addr = 0
+    string = ""
+    fixup_type = FIXUP_TYPE_NONE
+    fixup_sym = None
 
     def __str__(self):
-        return "Instruction op 0x%004x 0x%04x, address 0x%04x '%s'" % (self.op, self.op2, self.addr, self.string)
+        return "Instruction op 0x%004x 0x%04x, address 0x%04x '%s' fixup type %d sym: %s" % (
+                self.op, self.op2, self.addr, self.string, self.fixup_type, str(self.fixup_sym))
+
+class Symbol:
+    name = ""
+    addr = 0
+    resolved = False
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return "Symbol '%s' at addr 0x%04x resolved %d" % (self.name, self.addr, self.resolved)
 
 class Codegen_Exception:
     def __init__(self, string):
@@ -108,23 +123,52 @@ def parse_ins_to_string(ins):
     return "unk"
 
 class Codegen:
-    def __init__(self):
-        self.addr = 0
-        self.instructions = []
-        print "codegen new"
+    cur_addr = 0
+    instructions = []
+    symbols = {}
 
-    def add_label(self, ins):
-        print "add label %s, address %#x" % (str(ins), self.addr)
+    def __init__(self):
+        pass
+
+    def add_label(self, label):
+        label = str(label[1])
+        print "add label %s, address %#x" % (label, self.cur_addr)
+
+        # see if it already exists
+        try:
+            sym = self.symbols[label]
+            if sym.resolved:
+                raise Codegen_Exception("add_label: already seem symbol %s" % label)
+
+            # it's now resolved
+            sym.addr = self.cur_addr
+            sym.resolved = True
+        except:
+            # previously unseen symbol
+            sym = Symbol(label)
+            sym.addr = self.cur_addr
+            sym.resolved = True
+            self.symbols[label] = sym
+
+    # grab a reference to a symbol when an instruction sees a label
+    def get_symbol_ref(self, label):
+        try:
+            sym = self.symbols[label]
+            return sym
+        except:
+            # previously unseen symbol
+            sym = Symbol(label)
+            self.symbols[label] = sym
+            return sym
 
     def add_directive(self, ins):
         print "add directive %s" % str(ins)
-
 
     def add_instruction(self, ins):
         print "add instruction %s" % str(ins)
 
         i = Instruction()
-        i.addr = self.addr
+        i.addr = self.cur_addr
 
         # lookup the opcode
         op = 0
@@ -240,7 +284,6 @@ class Codegen:
                     i.op |= (1 << 4)
                     i.op2 = num & 0xffff
                     i.op_length = 2
-                    self.addr += 1
                 else:
                     raise Codegen_Exception("add_instruction: immediate out of range %d" % int(num))
             else:
@@ -277,8 +320,9 @@ class Codegen:
                     # it's a short immediate, just encode the instruction
                     i.op |= (int(arg[1]) & 0x1ff);
                 elif arg[0] == 'ID':
-                    # XXX handle
-                    pass
+                    # short branch, target is unresolved
+                    i.fixup_type = FIXUP_TYPE_SHORT_BRANCH;
+                    i.fixup_sym = self.get_symbol_ref(arg[1])
             else:
                 # long branch
                 if arg[0] == 'REGISTER':
@@ -292,10 +336,12 @@ class Codegen:
                     i.op2 = (arg[1] & 0xffff);
                     i.op_length += 1
                 elif arg[0] == 'ID':
-                    # XXX handle
+                    # 16 bit long address, target is unresolved
                     i.op |= (0 << 10) | (1<<9);
                     i.op2 = 0;
                     i.op_length += 1
+                    i.fixup_type = FIXUP_TYPE_LONG_BRANCH;
+                    i.fixup_sym = self.get_symbol_ref(arg[1])
                     pass
         else:
             raise Codegen_Exception("add_instruction: unhandled ITYPE")
@@ -303,10 +349,38 @@ class Codegen:
         i.string = parse_ins_to_string(ins)
 
         self.instructions.append(i)
-        self.addr += 1
+        self.cur_addr += i.op_length
+
+    def handle_fixups(self):
+        for ins in self.instructions:
+            if ins.fixup_type == FIXUP_TYPE_SHORT_BRANCH:
+                sym = ins.fixup_sym
+                if not sym.resolved:
+                    raise Codegen_Exception("fixup: short branch referring to unresolved symbol '%s'" % sym.name)
+
+                # compute the distance
+                offset = sym.addr - (ins.addr + 1)
+                if offset >= 256 or offset < -256:
+                    raise Codegen_Exception("fixup: short branch with too large offset %d" % offset)
+
+                # patch the instruction
+                ins.op |= (offset & 0x1ff)
+            elif ins.fixup_type == FIXUP_TYPE_LONG_BRANCH:
+                sym = ins.fixup_sym
+                if not sym.resolved:
+                    raise Codegen_Exception("fixup; long branch referring to unresolved symbol '%s'" % sym.name)
+
+                # compute the distance
+                offset = sym.addr - (ins.addr + 2)
+
+                # patch the instruction
+                ins.op2 = offset & 0xffff
 
     def dump_instructions(self):
         for ins in self.instructions:
             print ins
+    def dump_symbols(self):
+        for sym in self.symbols:
+            print self.symbols[sym]
 
 # vim: ts=4 sw=4 expandtab:

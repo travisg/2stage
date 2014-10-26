@@ -77,6 +77,8 @@ start:
     add r1, #-8
 end:
 
+    ;b   foobar
+
     ; some directives
 .word   #123
 .barf
