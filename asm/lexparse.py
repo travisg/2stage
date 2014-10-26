@@ -132,7 +132,7 @@ def p_expr(p):
 
 def p_label(p):
     '''label        : ID ':' '''
-    print "parser label %s" % str(p[1])
+    #print "parser label %s" % str(p[1])
     codegen.add_label(p[1])
 
 def p_instruction(p):
@@ -145,26 +145,26 @@ def p_instruction_3addr(p):
     '''instruction_3addr    : INSTRUCTION REGISTER ',' REGISTER ',' REGISTER
                             | INSTRUCTION REGISTER ',' REGISTER ',' NUM
                             | INSTRUCTION REGISTER ',' REGISTER ',' ID'''
-    print "parser instruction 3addr %s" % p[1]
+    #print "parser instruction 3addr %s" % p[1]
     codegen.add_instruction((p[1], p[2], p[4], p[6]))
 
 def p_instruction_2addr(p):
     '''instruction_2addr    : INSTRUCTION REGISTER ',' NUM
                             | INSTRUCTION REGISTER ',' REGISTER
                             | INSTRUCTION REGISTER ',' ID'''
-    print "parser instruction 2addr %s" % p[1]
+    #print "parser instruction 2addr %s" % p[1]
     codegen.add_instruction((p[1], p[2], p[4]))
 
 def p_instruction_1addr(p):
     '''instruction_1addr    : INSTRUCTION REGISTER
                             | INSTRUCTION NUM
                             | INSTRUCTION ID'''
-    print "parser instruction 1addr %s" % p[1]
+    #print "parser instruction 1addr %s" % p[1]
     codegen.add_instruction((p[1], p[2]))
 
 def p_instruction_0addr(p):
     '''instruction_0addr    : INSTRUCTION'''
-    print "parser instruction 0addr %s" % p[1]
+    #print "parser instruction 0addr %s" % p[1]
     codegen.add_instruction((p[1], ))
 
 def p_directive(p):
@@ -172,7 +172,7 @@ def p_directive(p):
                             | DIRECTIVE ID
                             | DIRECTIVE STRING
                             | DIRECTIVE NUM'''
-    print "parser directive %s" % p[1]
+    #print "parser directive %s" % p[1]
     if len(p) == 3:
         codegen.add_directive((p[1], p[2]))
     else:

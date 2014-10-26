@@ -126,13 +126,14 @@ class Codegen:
     cur_addr = 0
     instructions = []
     symbols = {}
+    verbose = False
 
     def __init__(self):
         pass
 
     def add_label(self, label):
         label = str(label[1])
-        print "add label %s, address %#x" % (label, self.cur_addr)
+        if self.verbose: print "add label %s, address %#x" % (label, self.cur_addr)
 
         # see if it already exists
         try:
@@ -162,10 +163,10 @@ class Codegen:
             return sym
 
     def add_directive(self, ins):
-        print "add directive %s" % str(ins)
+        if self.verbose: print "add directive %s" % str(ins)
 
     def add_instruction(self, ins):
-        print "add instruction %s" % str(ins)
+        if self.verbose: print "add instruction %s" % str(ins)
 
         i = Instruction()
         i.addr = self.cur_addr
@@ -273,7 +274,6 @@ class Codegen:
                 i.op |= (3 << 3) | b_arg[1]
             elif b_arg[0] == 'NUMBER':
                 num = int(b_arg[1])
-                print "num %d" % b_arg[1]
 
                 # see if we can fit it in a 4 bit signed immediate
                 if num < 8 and num > -7:
@@ -382,5 +382,15 @@ class Codegen:
     def dump_symbols(self):
         for sym in self.symbols:
             print self.symbols[sym]
+
+    def output_hex(self, hexfile):
+        for ins in self.instructions:
+            hexfile.write("%04x // 0x%04x %s\n" % (ins.op, ins.addr, ins.string))
+            if ins.op_length == 2:
+                hexfile.write("%04x\n"  % (ins.op2))
+
+    def output_binary(self, binfile):
+        print "output_binary: UNIMPLEMENTED!"
+        pass
 
 # vim: ts=4 sw=4 expandtab:
