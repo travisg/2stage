@@ -9,4 +9,5 @@ local.mk
 *.lst
 *.pyc
 *.out
+*.hex
 parsetab.py
