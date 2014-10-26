@@ -21,6 +21,7 @@ INSTRUCTIONS = (
     "lsr",
     "asr",
     "b",
+    "bl",
 
     # different branches
     "beq",

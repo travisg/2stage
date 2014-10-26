@@ -18,7 +18,14 @@ start:
     tst r3, r2
     tst r3
     b   r1
-    b   #1234
+    bl  r1
+    b   #1      ; short branch
+    b   #255    ; short branch
+    b   #-256    ; short branch
+    b   #256    ; long branch
+    b   #-257    ; long branch
+    bl  #1234  ; long branch
+    bl  #1      ; long branch due to 'l' bit
     b   start   ; a label it has seen
     b   end     ; a label is has not seen
     nop

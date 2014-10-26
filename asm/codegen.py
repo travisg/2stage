@@ -1,8 +1,9 @@
 
 # general class of instruction
 ITYPE_ALU = 1
-ITYPE_BRANCH = 2
-ITYPE_BRANCH_OR_ALU = 3
+ITYPE_SHORT_BRANCH = 2
+ITYPE_SHORT_OR_LONG_BRANCH = 3
+ITYPE_LONG_BRANCH = 4
 
 # argument types
 ATYPE_NONE      = 1  # nop
@@ -28,23 +29,24 @@ opcode_table = {
     'lsr': IFormat(0x6000, ITYPE_ALU, ATYPE_DAB),
     'asr': IFormat(0x7000, ITYPE_ALU, ATYPE_DAB),
 
-    'beq': IFormat(0x8000 | (0 << 10), ITYPE_BRANCH, ATYPE_D),
-    'bne': IFormat(0x8000 | (1 << 10), ITYPE_BRANCH, ATYPE_D),
-    'bcs': IFormat(0x8000 | (2 << 10), ITYPE_BRANCH, ATYPE_D),
-    'bhs': IFormat(0x8000 | (2 << 10), ITYPE_BRANCH, ATYPE_D),
-    'bcc': IFormat(0x8000 | (3 << 10), ITYPE_BRANCH, ATYPE_D),
-    'blo': IFormat(0x8000 | (3 << 10), ITYPE_BRANCH, ATYPE_D),
-    'bmi': IFormat(0x8000 | (4 << 10), ITYPE_BRANCH, ATYPE_D),
-    'bpl': IFormat(0x8000 | (5 << 10), ITYPE_BRANCH, ATYPE_D),
-    'bvs': IFormat(0x8000 | (6 << 10), ITYPE_BRANCH, ATYPE_D),
-    'bvc': IFormat(0x8000 | (7 << 10), ITYPE_BRANCH, ATYPE_D),
-    'bhi': IFormat(0x8000 | (8 << 10), ITYPE_BRANCH, ATYPE_D),
-    'bls': IFormat(0x8000 | (9 << 10), ITYPE_BRANCH, ATYPE_D),
-    'bge': IFormat(0x8000 | (10 << 10), ITYPE_BRANCH, ATYPE_D),
-    'blt': IFormat(0x8000 | (11 << 10), ITYPE_BRANCH, ATYPE_D),
-    'bgt': IFormat(0x8000 | (12 << 10), ITYPE_BRANCH, ATYPE_D),
-    'ble': IFormat(0x8000 | (13 << 10), ITYPE_BRANCH, ATYPE_D),
-    'b':   IFormat(0x8000 | (15 << 10), ITYPE_BRANCH_OR_ALU, ATYPE_D),
+    'beq': IFormat(0x8000 | (0 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bne': IFormat(0x8000 | (1 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bcs': IFormat(0x8000 | (2 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bhs': IFormat(0x8000 | (2 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bcc': IFormat(0x8000 | (3 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'blo': IFormat(0x8000 | (3 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bmi': IFormat(0x8000 | (4 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bpl': IFormat(0x8000 | (5 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bvs': IFormat(0x8000 | (6 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bvc': IFormat(0x8000 | (7 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bhi': IFormat(0x8000 | (8 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bls': IFormat(0x8000 | (9 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bge': IFormat(0x8000 | (10 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'blt': IFormat(0x8000 | (11 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bgt': IFormat(0x8000 | (12 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'ble': IFormat(0x8000 | (13 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'b':   IFormat(0x8000, ITYPE_SHORT_OR_LONG_BRANCH, ATYPE_D),
+    'bl':  IFormat(0xa000, ITYPE_LONG_BRANCH, ATYPE_D),
 
     'nop': IFormat(0x0000, ITYPE_ALU, ATYPE_NONE), # add
 
@@ -233,22 +235,68 @@ class Codegen:
                 if num < 8 and num > -7:
                     # we can use 4 bit immediate
                     i.op |= (0 << 4) | (num & 0xf)
-                elif num < 32768 and num > -32767:
+                elif num < 32767 and num >= -32768:
                     # going to have to use a full 16 bit immediate
                     i.op |= (1 << 4)
                     i.op2 = num & 0xffff
                     i.op_length = 2
                     self.addr += 1
                 else:
-                    raise Codegen_Exception("add_instruction: immediate out of range %s" % str(num))
+                    raise Codegen_Exception("add_instruction: immediate out of range %d" % int(num))
             else:
                 raise Codegen_Exception("add_instruction: b is bogus type '%s'" % b_arg)
-        elif op.itype == ITYPE_BRANCH or op.itype == ITYPE_BRANCH_OR_ALU:
+        elif op.itype == ITYPE_SHORT_BRANCH or op.itype == ITYPE_LONG_BRANCH or op.itype == ITYPE_SHORT_OR_LONG_BRANCH:
             # handle branches
+            if arg_count != 1:
+                raise Codegen_Exception("add_instruction: invalid number of args for branch")
 
-            
+            arg = ins[1]
 
-            pass
+            # see what form it is
+            long_branch = False
+            if op.itype == ITYPE_LONG_BRANCH:
+                long_branch = True
+            elif op.itype == ITYPE_SHORT_OR_LONG_BRANCH:
+                # further tests
+                if arg[0] == 'REGISTER':
+                    long_branch = True
+                elif arg[0] == 'NUMBER' and (arg[1] >= 256 or arg[1] < -256):
+                    long_branch = True
+                elif arg[0] == 'ID':
+                    # hack, for now make all label branches long form
+                    long_branch = True
+
+            # deal with branch types
+            if not long_branch:
+                # short branch
+                if arg[0] == 'REGISTER':
+                    raise Codegen_Exception("add_instruction: register on short branch")
+                elif arg[0] == 'NUMBER':
+                    if arg[1] >= 256 or arg[1] < -256:
+                        raise Codegen_Exception("add_instruction: short branch with too large offset %d" % int(arg[1]))
+                    # it's a short immediate, just encode the instruction
+                    i.op |= (int(arg[1]) & 0x1ff);
+                elif arg[0] == 'ID':
+                    # XXX handle
+                    pass
+            else:
+                # long branch
+                if arg[0] == 'REGISTER':
+                    # its a register branch
+                    if (arg[1] == 0):
+                        raise Codegen_Exception("add_instruction: cannot generate register branch with r0")
+                    i.op |= (arg[1] << 10) | (1 << 9);
+                elif arg[0] == 'NUMBER':
+                    # it's a 16bit signed immediate 2-word branch
+                    i.op |= (0 << 10) | (1<<9);
+                    i.op2 = (arg[1] & 0xffff);
+                    i.op_length += 1
+                elif arg[0] == 'ID':
+                    # XXX handle
+                    i.op |= (0 << 10) | (1<<9);
+                    i.op2 = 0;
+                    i.op_length += 1
+                    pass
         else:
             raise Codegen_Exception("add_instruction: unhandled ITYPE")
 

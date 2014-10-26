@@ -30,18 +30,21 @@ OOOO iDDD AAA bbbbb
      0DDD           - register direct
      1DDD           - register indirect
      0000           - dest is r0, throw away result
-     1000           - program counter [r0]
     b addressing mode
               0XXXX - immediate (4 bit signed)
               10000 - immediate is next instruction word (r0) (16 bit signed)
               10BBB - register direct
-              11000 - program counter [r0] (pc reads as +2 current instruction)
               11BBB - register indirect
 
 branch ops:
-10 CCCC oooooooooo  - b  - (un)conditional branch
+10 CCCC 0 ooooooooo  - b  - conditional branch
 
-         10 bit signed offset (-511/512)
+         9 bit signed offset (-256/255)
+
+10 Lrrr 1 xxxxxxxxx  - b(l) reg
+10 L000 1 xxxxxxxxx  - b(l) #16bit signed offset
+
+        L moves next instruction into r7 (lr register)
 
 pseudo instructions:
     mov d, b    - add d, r0, b
