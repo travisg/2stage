@@ -6,4 +6,16 @@ start:
     add [r1], r3, [r2]
     mov [r2], #9876
 
-    b start  ; (address 0)
+loop:
+    bl func
+    b  #0
+    bl  #0
+    ;b loop
+    ;b start
+    ;b r1
+    ;bl r1
+
+
+func:
+    mov r5, #5
+    b lr

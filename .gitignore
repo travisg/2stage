@@ -10,4 +10,5 @@ local.mk
 *.pyc
 *.out
 *.hex
+*.gtkw
 parsetab.py

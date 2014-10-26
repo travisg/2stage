@@ -106,17 +106,22 @@ wire [2:0] reg_a = ir[7:5];
 wire [1:0] reg_b_addr_mode = ir[4:3];
 wire [2:0] reg_b = ir[2:0];
 
+    /* short branches */
 wire [3:0] branch_cc = ir[13:10];
-wire [15:0] branch_offset = ir[9] ? { 6'b111111, ir[9:0] } : { 6'b0, ir[9:0] };
+wire [15:0] branch_short_offset = ir[9] ? { 6'b111111, ir[9:0] } : { 6'b0, ir[9:0] };
+    /* long or register branches */
+wire branch_link = ir[9];
+wire [2:0] branch_reg = reg_b;
 
 logic [15:0] reg_a_out;
 logic [15:0] reg_b_out;
-logic [15:0] reg_d_out;
 logic [15:0] alu_a_in;
 logic [15:0] alu_b_in;
 logic [15:0] alu_result;
 logic [3:0] alu_cc;
-logic reg_writeback;
+logic do_reg_writeback;
+logic [2:0] writeback_reg;
+logic [15:0] writeback_result;
 
 typedef enum [1:0] {
     DECODE,
@@ -130,7 +135,6 @@ state_t state_next;
 always_comb begin
     s2_to_s1_take_branch = 0;
     s2_to_s1_stall = 0;
-    reg_writeback = 0;
     state_next = state;
     ir_next = s1_ifetch;
     mem_immediate_next = mem_immediate;
@@ -139,6 +143,10 @@ always_comb begin
     alu_a_in = 16'bX;
     alu_b_in = 16'bX;
 
+    do_reg_writeback = 0;
+    writeback_reg = 3'bX;
+    writeback_result = 16'bX;
+
     re = 0;
     raddr = 16'bX;
     we = 0;
@@ -146,43 +154,92 @@ always_comb begin
     wdata = 16'bX;
 
     casez (op)
-    4'b10??: begin // branch
-        s2_pc_next = pc + branch_offset;
+    4'b10??: begin // short branch
+        if (branch_cc != 4'b1111) begin
+            // short conditional branch
+            s2_pc_next = pc + branch_short_offset;
 
-        // kill the branch delay slot by inserting a nop
-        ir_next = 16'b0;
+            // kill the branch delay slot by inserting a nop
+            ir_next = 16'b0;
 
-        /* check conditions */
-        case (branch_cc)
-            /* eq */ 4'b0000: s2_to_s1_take_branch = reg_cc_z;
-            /* ne */ 4'b0001: s2_to_s1_take_branch = !reg_cc_z;
-         /* cs|hs */ 4'b0010: s2_to_s1_take_branch = reg_cc_c;
-         /* cc|lo */ 4'b0011: s2_to_s1_take_branch = !reg_cc_c;
-            /* mi */ 4'b0100: s2_to_s1_take_branch = reg_cc_n;
-            /* pl */ 4'b0101: s2_to_s1_take_branch = !reg_cc_n;
-            /* vs */ 4'b0110: s2_to_s1_take_branch = reg_cc_v;
-            /* vc */ 4'b0111: s2_to_s1_take_branch = !reg_cc_v;
-            /* hi */ 4'b1000: s2_to_s1_take_branch = reg_cc_v && !reg_cc_z;
-            /* ls */ 4'b1001: s2_to_s1_take_branch = !reg_cc_v || reg_cc_z;
-            /* ge */ 4'b1010: s2_to_s1_take_branch = reg_cc_n == reg_cc_v;
-            /* lt */ 4'b1011: s2_to_s1_take_branch = reg_cc_n != reg_cc_v;
-            /* gt */ 4'b1100: s2_to_s1_take_branch = !reg_cc_z && (reg_cc_n == reg_cc_v);
-            /* le */ 4'b1101: s2_to_s1_take_branch = reg_cc_z || (reg_cc_n != reg_cc_v);
-            /* nv */ 4'b1110: s2_to_s1_take_branch = 0;
-            /* al */ 4'b1111: s2_to_s1_take_branch = 1;
-        endcase
-        //$display("S2: ir %x, branch rd %d, offset %x, s2_pc_next %x, take branch %d", ir, reg_d, branch_offset, s2_pc_next, s2_to_s1_take_branch);
+            /* check conditions */
+            case (branch_cc)
+                /* eq */ 4'b0000: s2_to_s1_take_branch = reg_cc_z;
+                /* ne */ 4'b0001: s2_to_s1_take_branch = !reg_cc_z;
+             /* cs|hs */ 4'b0010: s2_to_s1_take_branch = reg_cc_c;
+             /* cc|lo */ 4'b0011: s2_to_s1_take_branch = !reg_cc_c;
+                /* mi */ 4'b0100: s2_to_s1_take_branch = reg_cc_n;
+                /* pl */ 4'b0101: s2_to_s1_take_branch = !reg_cc_n;
+                /* vs */ 4'b0110: s2_to_s1_take_branch = reg_cc_v;
+                /* vc */ 4'b0111: s2_to_s1_take_branch = !reg_cc_v;
+                /* hi */ 4'b1000: s2_to_s1_take_branch = reg_cc_v && !reg_cc_z;
+                /* ls */ 4'b1001: s2_to_s1_take_branch = !reg_cc_v || reg_cc_z;
+                /* ge */ 4'b1010: s2_to_s1_take_branch = reg_cc_n == reg_cc_v;
+                /* lt */ 4'b1011: s2_to_s1_take_branch = reg_cc_n != reg_cc_v;
+                /* gt */ 4'b1100: s2_to_s1_take_branch = !reg_cc_z && (reg_cc_n == reg_cc_v);
+                /* le */ 4'b1101: s2_to_s1_take_branch = reg_cc_z || (reg_cc_n != reg_cc_v);
+                /* al */ 4'b1110: s2_to_s1_take_branch = 1;
+                /* nv */ 4'b1111: s2_to_s1_take_branch = 0;
+            endcase
+        end else if (branch_reg != 0) begin
+            // cc is 1111 and target reg is !0, register branch
+            s2_pc_next = reg_b_out;
+
+            // kill the branch delay slot by inserting a nop
+            ir_next = 16'b0;
+
+            // take the branch always
+            s2_to_s1_take_branch = 1;
+
+            // handle bl
+            if (branch_link) begin
+               writeback_reg = 7; // lr
+               do_reg_writeback = 1;
+               writeback_result = pc;
+            end
+        end else begin
+            // cc is 1111 and target reg is 0, load the 16bit immediate in the next instruction word
+            case (state)
+                DECODE: begin
+                    // wait one cycle for the next word of data from stage1 instruction fetcher
+                    state_next = IR_IMMEDIATE;
+                    ir_next = ir;
+                    mem_immediate_next = s1_ifetch;
+                end
+                IR_IMMEDIATE: begin
+                    // we've already waited a cycle, so go back to regular DECODE
+                    state_next = DECODE;
+                    s2_pc_next = pc + mem_immediate;
+
+                    // kill the branch delay slot by inserting a nop
+                    ir_next = 16'b0;
+
+                    // take the branch always
+                    s2_to_s1_take_branch = 1;
+
+                    // handle bl
+                    if (branch_link) begin
+                       writeback_reg = 7; // lr
+                       do_reg_writeback = 1;
+                       writeback_result = pc;
+                    end
+                end
+                default: ;
+            endcase
+        end
     end
     4'b11??: begin // undefined
     end
     4'b0???: begin // alu op
         alu_a_in = reg_a_out;
+        writeback_reg = reg_d;
+        writeback_result = alu_result;
 
         // handle the 2nd operand
         casez (reg_b_addr_mode)
             2'b0?: begin // 4 bit signed immediate
                 alu_b_in = ir[3] ? { 12'b111111111111, ir[3:0] } : { 12'b0, ir[3:0] };
-                reg_writeback = 1;
+                do_reg_writeback = 1;
                 reg_cc_next = alu_cc;
             end
             2'b10: begin // register b
@@ -199,7 +256,7 @@ always_comb begin
                         IR_IMMEDIATE: begin
                             // we've already waited a cycle, so go back to regular DECODE
                             state_next = DECODE;
-                            reg_writeback = 1;
+                            do_reg_writeback = 1;
                             reg_cc_next = alu_cc;
                             alu_b_in = mem_immediate;
                         end
@@ -208,74 +265,41 @@ always_comb begin
                 end else begin
                     // normal case where Rb is treated as a register
                     alu_b_in = reg_b_out;
-                    reg_writeback = 1;
+                    do_reg_writeback = 1;
                     reg_cc_next = alu_cc;
                 end
             end
             2'b11: begin // register b indirect
-                if (reg_b == 0) begin
-                    // special case, Rb == 0, indirect
-                    // return PC + 2 (it's already +1 from the instruction after the one we're on)
-                    alu_b_in = pc_plusone;
-                    reg_writeback = 1;
-                    reg_cc_next = alu_cc;
-                end else begin
-                    // start a 2 stage read operation
-                    case (state)
-                        DECODE: begin
-                            // put the address and data out on the bus
-                            state_next = LOAD1;
-                            raddr = reg_b_out;
-                            re = 1;
-                            ir_next = ir;
-                            s2_to_s1_stall = 1;
-                        end
-                        LOAD1: begin
-                            // let it sit for a clock for the external memory to respond
-                            mem_immediate_next = rdata;
-                            state_next = LOAD2;
-                            ir_next = ir;
-                            s2_to_s1_stall = 1;
-                        end
-                        LOAD2: begin
-                            // we should have it now, go back to regular decode
-                            state_next = DECODE;
-                            reg_cc_next = alu_cc;
-                            reg_writeback = 1;
-                            alu_b_in = mem_immediate;
-                        end
-                        default: ;
-                    endcase
-                end
+                // start a 2 stage read operation
+                case (state)
+                    DECODE: begin
+                        // put the address and data out on the bus
+                        state_next = LOAD1;
+                        raddr = reg_b_out;
+                        re = 1;
+                        ir_next = ir;
+                        s2_to_s1_stall = 1;
+                    end
+                    LOAD1: begin
+                        // let it sit for a clock for the external memory to respond
+                        mem_immediate_next = rdata;
+                        state_next = LOAD2;
+                        ir_next = ir;
+                        s2_to_s1_stall = 1;
+                    end
+                    LOAD2: begin
+                        // we should have it now, go back to regular decode
+                        state_next = DECODE;
+                        reg_cc_next = alu_cc;
+                        do_reg_writeback = 1;
+                        alu_b_in = mem_immediate;
+                    end
+                    default: ;
+                endcase
             end
         endcase
 
-        // handle indirect d writebacks
-        if (reg_d_indirect && reg_writeback) begin
-            if (reg_d != 0) begin
-                // once we've handled the read states (if any), start a write cycle
-                // note, this can overlap with the last cycle of a read
-                reg_writeback = 0;
-                we = 1;
-                waddr = reg_d_out;
-                wdata = alu_result;
-            end else begin
-                // reg_d == 0 is a special case, writes to the pc (branches)
-                reg_writeback = 0;
-                s2_pc_next = alu_result;
-                s2_to_s1_take_branch = 1;
-
-                // kill condition updates on branches
-                reg_cc_next = reg_cc;
-
-                // kill the branch delay slot by inserting a nop
-                // only do it if it's the last phase in this instruction
-                if (state_next == DECODE)
-                    ir_next = 16'b0;
-            end
-        end
-
-        //$display("S2: ir %x, wb %d, alu rd %d, ra %d, rb %d", ir, reg_writeback, reg_d, reg_a, reg_b);
+        //$display("S2: ir %x, wb %d, alu rd %d, ra %d, rb %d", ir, do_reg_writeback, reg_d, reg_a, reg_b);
     end
     endcase
 
@@ -306,12 +330,9 @@ regfile regs(
     .raddr_b(reg_b),
     .rdata_b(reg_b_out),
 
-    .raddr_c(reg_d),
-    .rdata_c(reg_d_out),
-
-    .we(reg_writeback),
-    .waddr(reg_d),
-    .wdata(alu_result)
+    .we(do_reg_writeback),
+    .waddr(writeback_reg),
+    .wdata(writeback_result)
 );
 
 /* alu */

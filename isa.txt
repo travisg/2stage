@@ -19,32 +19,42 @@ ops:
 
 11xx - misc
 
+alu ops:
 1111 1100 000 00000
 5432 1098 765 43210
 -------------------
-
-alu ops:
 OOOO iDDD AAA bbbbb
 
-    d addressing mode
+    d addressing mode:
      0DDD           - register direct
      1DDD           - register indirect
      0000           - dest is r0, throw away result
-    b addressing mode
+    b addressing mode:
               0XXXX - immediate (4 bit signed)
               10000 - immediate is next instruction word (r0) (16 bit signed)
               10BBB - register direct
               11BBB - register indirect
 
 branch ops:
-10 CCCC 0 ooooooooo  - b  - conditional branch
+11 1111 0000000000
+54 3210 9876543210
+------------------
+    short conditional branch:
+10 CCCC oooooooooo  - b  - conditional branch (unconditional is 1111)
 
-         9 bit signed offset (-256/255)
+         10 bit signed offset (-512/511)
 
-10 Lrrr 1 xxxxxxxxx  - b(l) reg
-10 L000 1 xxxxxxxxx  - b(l) #16bit signed offset
+    long unconditional branch (with link), uses nv conditional:
+10 1111 Lxxxxxxrrr   - b(l) reg
+10 1111 Lxxxxxx000   - b(l) #16bit signed offset (next instruction word)
 
         L moves next instruction into r7 (lr register)
+
+unused:
+11 11110000000000
+54 32109876543210
+-----------------
+11 xxxxxxxxxxxxxx
 
 pseudo instructions:
     mov d, b    - add d, r0, b
@@ -88,5 +98,5 @@ conditions (ARM style):
 1011 lt          Signed less than.                                           N!=V
 1100 gt          Signed greater than.                                        (Z==0) && (N==V)
 1101 le          Signed less than or equal.                                  (Z==1) || (N!=V)
-1110 nv          never                                                       possible extention area
-1111 al (or omitted) Always executed.
+1110 al (or omitted) Always executed.
+1111 nv          never                                                       (use to signal long form)

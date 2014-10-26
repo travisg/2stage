@@ -45,8 +45,8 @@ opcode_table = {
     'blt': IFormat(0x8000 | (11 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
     'bgt': IFormat(0x8000 | (12 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
     'ble': IFormat(0x8000 | (13 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'b':   IFormat(0x8000, ITYPE_SHORT_OR_LONG_BRANCH, ATYPE_D),
-    'bl':  IFormat(0xa000, ITYPE_LONG_BRANCH, ATYPE_D),
+    'b':   IFormat(0x8000 | (14 << 10), ITYPE_SHORT_OR_LONG_BRANCH, ATYPE_D),
+    'bl':  IFormat(0xb000 | (14 << 10) | (1<<9), ITYPE_LONG_BRANCH, ATYPE_D),
 
     'nop': IFormat(0x0000, ITYPE_ALU, ATYPE_NONE), # add
 
@@ -303,10 +303,10 @@ class Codegen:
                 # further tests
                 if arg[0] == 'REGISTER':
                     long_branch = True
-                elif arg[0] == 'NUMBER' and (arg[1] >= 256 or arg[1] < -256):
+                elif arg[0] == 'NUMBER' and (arg[1] >= 512 or arg[1] < -512):
                     long_branch = True
                 elif arg[0] == 'ID':
-                    # hack, for now make all label branches long form
+                    # XXX hack, for now make all label branches long form
                     long_branch = True
 
             # deal with branch types
@@ -315,29 +315,29 @@ class Codegen:
                 if arg[0] == 'REGISTER':
                     raise Codegen_Exception("add_instruction: register on short branch")
                 elif arg[0] == 'NUMBER':
-                    if arg[1] >= 256 or arg[1] < -256:
+                    if arg[1] >= 512 or arg[1] < -512:
                         raise Codegen_Exception("add_instruction: short branch with too large offset %d" % int(arg[1]))
                     # it's a short immediate, just encode the instruction
-                    i.op |= (int(arg[1]) & 0x1ff);
+                    i.op |= (int(arg[1]) & 0x3ff);
                 elif arg[0] == 'ID':
                     # short branch, target is unresolved
                     i.fixup_type = FIXUP_TYPE_SHORT_BRANCH;
                     i.fixup_sym = self.get_symbol_ref(arg[1])
             else:
                 # long branch
+                i.op |= (0xf << 10); # use NV condition
+
                 if arg[0] == 'REGISTER':
                     # its a register branch
                     if (arg[1] == 0):
                         raise Codegen_Exception("add_instruction: cannot generate register branch with r0")
-                    i.op |= (arg[1] << 10) | (1 << 9);
+                    i.op |= arg[1];
                 elif arg[0] == 'NUMBER':
                     # it's a 16bit signed immediate 2-word branch
-                    i.op |= (0 << 10) | (1<<9);
                     i.op2 = (arg[1] & 0xffff);
                     i.op_length += 1
                 elif arg[0] == 'ID':
                     # 16 bit long address, target is unresolved
-                    i.op |= (0 << 10) | (1<<9);
                     i.op2 = 0;
                     i.op_length += 1
                     i.fixup_type = FIXUP_TYPE_LONG_BRANCH;
