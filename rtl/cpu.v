@@ -89,7 +89,6 @@ wire reg_cc_z = reg_cc[2];
 wire reg_cc_c = reg_cc[1];
 wire reg_cc_v = reg_cc[0];
 
-
 /* data memory unit */
 logic re;
 logic [DADDRWIDTH-1:0] raddr;
@@ -123,25 +122,28 @@ logic do_reg_writeback;
 logic [2:0] writeback_reg;
 logic [15:0] writeback_result;
 
-typedef enum [1:0] {
+typedef enum [2:0] {
     DECODE,
     IR_IMMEDIATE,
     LOAD1,
-    LOAD2
+    LOAD2,
+    BRANCH_DELAY
 } state_t;
 state_t state = DECODE;
 state_t state_next;
 
 always_comb begin
-    s2_to_s1_take_branch = 0;
-    s2_to_s1_stall = 0;
     state_next = state;
     ir_next = s1_ifetch;
     mem_immediate_next = mem_immediate;
     reg_cc_next = reg_cc;
+
     s2_pc_next = 16'bX;
     alu_a_in = 16'bX;
     alu_b_in = 16'bX;
+
+    s2_to_s1_take_branch = 0;
+    s2_to_s1_stall = 0;
 
     do_reg_writeback = 0;
     writeback_reg = 3'bX;
@@ -154,49 +156,68 @@ always_comb begin
     wdata = 16'bX;
 
     casez (op)
-    4'b10??: begin // short branch
+    4'b10??: begin // branches
         if (branch_cc != 4'b1111) begin
             // short conditional branch
-            s2_pc_next = pc + branch_short_offset;
+            case (state)
+                DECODE: begin
+                    // compute target
+                    s2_pc_next = pc + branch_short_offset;
 
-            // kill the branch delay slot by inserting a nop
-            ir_next = 16'b0;
+                    // check conditions
+                    case (branch_cc)
+                        /* eq */ 4'b0000: s2_to_s1_take_branch = reg_cc_z;
+                        /* ne */ 4'b0001: s2_to_s1_take_branch = !reg_cc_z;
+                     /* cs|hs */ 4'b0010: s2_to_s1_take_branch = reg_cc_c;
+                     /* cc|lo */ 4'b0011: s2_to_s1_take_branch = !reg_cc_c;
+                        /* mi */ 4'b0100: s2_to_s1_take_branch = reg_cc_n;
+                        /* pl */ 4'b0101: s2_to_s1_take_branch = !reg_cc_n;
+                        /* vs */ 4'b0110: s2_to_s1_take_branch = reg_cc_v;
+                        /* vc */ 4'b0111: s2_to_s1_take_branch = !reg_cc_v;
+                        /* hi */ 4'b1000: s2_to_s1_take_branch = reg_cc_v && !reg_cc_z;
+                        /* ls */ 4'b1001: s2_to_s1_take_branch = !reg_cc_v || reg_cc_z;
+                        /* ge */ 4'b1010: s2_to_s1_take_branch = reg_cc_n == reg_cc_v;
+                        /* lt */ 4'b1011: s2_to_s1_take_branch = reg_cc_n != reg_cc_v;
+                        /* gt */ 4'b1100: s2_to_s1_take_branch = !reg_cc_z && (reg_cc_n == reg_cc_v);
+                        /* le */ 4'b1101: s2_to_s1_take_branch = reg_cc_z || (reg_cc_n != reg_cc_v);
+                        /* al */ 4'b1110: s2_to_s1_take_branch = 1;
+                        /* nv */ 4'b1111: s2_to_s1_take_branch = 0;
+                    endcase
 
-            /* check conditions */
-            case (branch_cc)
-                /* eq */ 4'b0000: s2_to_s1_take_branch = reg_cc_z;
-                /* ne */ 4'b0001: s2_to_s1_take_branch = !reg_cc_z;
-             /* cs|hs */ 4'b0010: s2_to_s1_take_branch = reg_cc_c;
-             /* cc|lo */ 4'b0011: s2_to_s1_take_branch = !reg_cc_c;
-                /* mi */ 4'b0100: s2_to_s1_take_branch = reg_cc_n;
-                /* pl */ 4'b0101: s2_to_s1_take_branch = !reg_cc_n;
-                /* vs */ 4'b0110: s2_to_s1_take_branch = reg_cc_v;
-                /* vc */ 4'b0111: s2_to_s1_take_branch = !reg_cc_v;
-                /* hi */ 4'b1000: s2_to_s1_take_branch = reg_cc_v && !reg_cc_z;
-                /* ls */ 4'b1001: s2_to_s1_take_branch = !reg_cc_v || reg_cc_z;
-                /* ge */ 4'b1010: s2_to_s1_take_branch = reg_cc_n == reg_cc_v;
-                /* lt */ 4'b1011: s2_to_s1_take_branch = reg_cc_n != reg_cc_v;
-                /* gt */ 4'b1100: s2_to_s1_take_branch = !reg_cc_z && (reg_cc_n == reg_cc_v);
-                /* le */ 4'b1101: s2_to_s1_take_branch = reg_cc_z || (reg_cc_n != reg_cc_v);
-                /* al */ 4'b1110: s2_to_s1_take_branch = 1;
-                /* nv */ 4'b1111: s2_to_s1_take_branch = 0;
+                    // wait one cycle, consuming the instruction the fetcher has already grabbed
+                    state_next = BRANCH_DELAY;
+                    ir_next = ir;
+                end
+                BRANCH_DELAY: begin
+                    state_next = DECODE;
+                end
+                default: ;
             endcase
         end else if (branch_reg != 0) begin
             // cc is 1111 and target reg is !0, register branch
-            s2_pc_next = reg_b_out;
+            case (state)
+                DECODE: begin
+                    s2_pc_next = reg_b_out;
 
-            // kill the branch delay slot by inserting a nop
-            ir_next = 16'b0;
+                    // take the branch always
+                    s2_to_s1_take_branch = 1;
 
-            // take the branch always
-            s2_to_s1_take_branch = 1;
+                    // wait one cycle, consuming the instruction the fetcher has already grabbed
+                    state_next = BRANCH_DELAY;
+                    ir_next = ir;
 
-            // handle bl
-            if (branch_link) begin
-               writeback_reg = 7; // lr
-               do_reg_writeback = 1;
-               writeback_result = pc;
-            end
+                    // handle bl
+                    if (branch_link) begin
+                       writeback_reg = 7; // lr
+                       do_reg_writeback = 1;
+                       writeback_result = pc;
+                    end
+                end
+                BRANCH_DELAY: begin
+                    state_next = DECODE;
+                end
+                default: ;
+            endcase
         end else begin
             // cc is 1111 and target reg is 0, load the 16bit immediate in the next instruction word
             case (state)
@@ -207,12 +228,12 @@ always_comb begin
                     mem_immediate_next = s1_ifetch;
                 end
                 IR_IMMEDIATE: begin
-                    // we've already waited a cycle, so go back to regular DECODE
-                    state_next = DECODE;
-                    s2_pc_next = pc + mem_immediate;
+                    // wait one cycle, consuming the instruction the fetcher has already grabbed
+                    state_next = BRANCH_DELAY;
+                    ir_next = ir;
 
-                    // kill the branch delay slot by inserting a nop
-                    ir_next = 16'b0;
+                    // add the 16 bit immediate to pc
+                    s2_pc_next = pc + mem_immediate;
 
                     // take the branch always
                     s2_to_s1_take_branch = 1;
@@ -224,11 +245,12 @@ always_comb begin
                        writeback_result = pc;
                     end
                 end
+                BRANCH_DELAY: begin
+                    state_next = DECODE;
+                end
                 default: ;
             endcase
         end
-    end
-    4'b11??: begin // undefined
     end
     4'b0???: begin // alu op
         alu_a_in = reg_a_out;
@@ -300,6 +322,8 @@ always_comb begin
         endcase
 
         //$display("S2: ir %x, wb %d, alu rd %d, ra %d, rb %d", ir, do_reg_writeback, reg_d, reg_a, reg_b);
+    end
+    4'b11??: begin // undefined
     end
     endcase
 

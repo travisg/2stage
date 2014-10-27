@@ -15,7 +15,6 @@ loop:
     ;b r1
     ;bl r1
 
-
 func:
     mov r5, #5
     b lr
