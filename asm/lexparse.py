@@ -8,7 +8,7 @@ tokens = (
     'DIRECTIVE',
     'ID',
     'STRING',
-    'INSTRUCTION'
+    'INSTRUCTION',
 )
 
 INSTRUCTIONS = (
@@ -50,10 +50,13 @@ INSTRUCTIONS = (
     "cmn",
 )
 
-t_ignore_COMMENT = r';.*|^\#.*'
+#t_ignore_COMMENT = r';.*'
 t_ignore = ' \t'
 
-literals = ':,[]'
+literals = ':;,[]#'
+
+class LexerError:
+    pass
 
 def t_DIRECTIVE(t):
     r'\.\w+'
@@ -61,15 +64,15 @@ def t_DIRECTIVE(t):
     return t
 
 def t_HEXNUM(t):
-    r'\#0[xX][A-Fa-f0-9]+'
-    t.value = ('NUMBER', int(t.value[3:], 16))
+    r'0[xX][A-Fa-f0-9]+'
+    t.value = ('NUMBER', int(t.value[2:], 16))
     #print "hexnum %s" % t
     t.type = 'NUM'
     return t
 
 def t_NUM(t):
-    r'\#-?\d+'
-    t.value = ('NUMBER', int(t.value[1:]))
+    r'-?\d+'
+    t.value = ('NUMBER', int(t.value))
     #print "num %s" % t
     return t
 
@@ -117,7 +120,8 @@ def t_newline(t):
     #print "line %d" % t.lexer.lineno
 
 def t_error(t):
-    print "lexer error %s" % t
+    print "lexer error %s at line %u" % (t, t.lineno)
+    raise LexerError
 
 import ply.lex as lex
 lex.lex(debug=False)
@@ -127,12 +131,13 @@ def p_expr(p):
     '''expr         : label
                     | instruction
                     | directive
+                    | preprocessor_directive
                     '''
     #print "parser expr %s %s" % (p, p[0])
 
 def p_label(p):
     '''label        : ID ':' '''
-    #print "parser label %s" % str(p[1])
+    #print "parser label %s, line %d" % (str(p[1]), p.lineno(1))
     codegen.add_label(p[1])
 
 def p_instruction(p):
@@ -178,13 +183,28 @@ def p_directive(p):
     else:
         codegen.add_directive((p[1], ))
 
+def p_preprocessor_directive(p):
+    '''preprocessor_directive : '#' NUM STRING
+                            | '#' NUM STRING NUM
+                            | '#' NUM STRING NUM NUM
+                            | '#' NUM STRING NUM NUM NUM
+                            | '#' NUM STRING NUM NUM NUM NUM'''
+    #print "parser preprocessor_directive, %s line %d" % (p[2], p.lineno(2))
+
+    # set the lineno to the number
+    p.lexer.lineno = int(p[2][1])
+
 #def p_emtpy(p):
     #'empty : '
     #pass
 
+class ParseError:
+    pass
+
 def p_error(p):
     if p != None:
-        print "parser error %s" % p
+        print "parser error %s on line %u" % (str(p.value), p.lineno)
+        raise ParseError
 
 import ply.yacc as yacc
 yacc.yacc()

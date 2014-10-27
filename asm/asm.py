@@ -3,6 +3,7 @@
 import sys
 import argparse
 import lexparse
+import subprocess
 import codegen
 
 def main():
@@ -20,9 +21,13 @@ def main():
     code = codegen.Codegen()
     lexparse.codegen = code
 
+    # preprocess the assembly
+    cpp = subprocess.Popen(['cpp','-nostdinc'], stdin=args.infile, stdout=subprocess.PIPE)
+
     if args.verbose: print "starting parser"
 
-    for line in args.infile:
+    for line in cpp.stdout:
+        if args.verbose: print "parsing line: ", line,
         lexparse.yacc.parse(line,debug=False)
 
     if args.verbose: print "processing fixups"
