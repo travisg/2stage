@@ -196,22 +196,36 @@ class Codegen:
                 #ATYPE_NONE - nop
                 if arg_count == 0:
                     match = True
-            elif op.atype & ATYPE_DAB:
+            elif op.atype == ATYPE_DAB:
                 #ATYPE_DAB - add D, A, B
                 if arg_count == 3:
                     dest_arg = ins[1]
                     a_arg = ins[2]
                     b_arg = ins[3]
                     match = True
-                elif arg_count == 2:    # add D, r0, B
+                elif arg_count == 2:    # add D, D, B
                     dest_arg = ins[1]
+                    a_arg = ins[1]
+
+                    # if dest is [reg], then have the A source be just reg
+                    if a_arg[0] == 'REGISTER_INDIRECT':
+                        a_arg = ('REGISTER', a_arg[1])
                     b_arg = ins[2]
                     match = True
-                elif arg_count == 1:    # add D, r0, D
+                elif arg_count == 1:    # add D, D, D
                     dest_arg = ins[1]
+                    a_arg = ins[1]
+
+                    # if dest is [reg], then have the A source be just reg
+                    if a_arg[0] == 'REGISTER_INDIRECT':
+                        a_arg = ('REGISTER', a_arg[1])
                     b_arg = ins[1]
+
+                    # if dest is [reg], then have the B source be just reg
+                    if b_arg[0] == 'REGISTER_INDIRECT':
+                        b_arg = ('REGISTER', b_arg[1])
                     match = True
-            elif op.atype & ATYPE_DB:
+            elif op.atype == ATYPE_DB:
                 #ATYPE_DB - add D, B    --- add D, r0, B
                 if arg_count == 2:
                     dest_arg = ins[1]
@@ -221,12 +235,12 @@ class Codegen:
                     dest_arg = ins[1]
                     b_arg = ins[1]
                     match = True
-            elif op.atype & ATYPE_D:
+            elif op.atype == ATYPE_D:
                 #ATYPE_D - b   D
                 if arg_count == 1:
                     dest_arg = ins[1]
                     match = True
-            elif op.atype & ATYPE_DA_MINUS1:
+            elif op.atype == ATYPE_DA_MINUS1:
                 #ATYPE_DA_MINUS1 - not D, A    --- xor D, A, #-1
                 if arg_count == 2:
                     dest_arg = ins[1]
@@ -238,7 +252,7 @@ class Codegen:
                     a_arg = ins[1]
                     b_arg = ('NUMBER', -1)
                     match = True
-            elif op.atype & ATYPE_AB:
+            elif op.atype == ATYPE_AB:
                 #ATYPE_AB - tst A, B    --- xor r0, A, B
                 if arg_count == 2:
                     a_arg = ins[1]
@@ -259,13 +273,13 @@ class Codegen:
             elif dest_arg[0] == 'REGISTER_INDIRECT':
                 i.op |= (1 << 11) | dest_arg[1] << 8
             else:
-                raise Codegen_Exception("add_instruction: dest is bogus type '%s'" % dest_arg)
+                raise Codegen_Exception("add_instruction: dest is bogus type '%s'" % str(dest_arg))
 
             # a arg can only be register
             if a_arg[0] == 'REGISTER':
                 i.op |= a_arg[1] << 5
             else:
-                raise Codegen_Exception("add_instruction: a is bogus type '%s'" % a_arg)
+                raise Codegen_Exception("add_instruction: a is bogus type '%s'" % str(a_arg))
 
             # b arg can be any type
             if b_arg[0] == 'REGISTER':
@@ -279,7 +293,7 @@ class Codegen:
                 if num < 8 and num > -7:
                     # we can use 4 bit immediate
                     i.op |= (0 << 4) | (num & 0xf)
-                elif num < 32767 and num >= -32768:
+                elif num < 65536 and num >= -32768:
                     # going to have to use a full 16 bit immediate
                     i.op |= (1 << 4)
                     i.op2 = num & 0xffff
@@ -364,7 +378,7 @@ class Codegen:
                     raise Codegen_Exception("fixup: short branch with too large offset %d" % offset)
 
                 # patch the instruction
-                ins.op |= (offset & 0x1ff)
+                ins.op |= (offset & 0x3ff)
             elif ins.fixup_type == FIXUP_TYPE_LONG_BRANCH:
                 sym = ins.fixup_sym
                 if not sym.resolved:

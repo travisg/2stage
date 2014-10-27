@@ -22,62 +22,37 @@
  */
 `timescale 1ns/1ns
 
-module regfile(
+module sim(
     input clk,
     input rst,
 
-    /* port a */
-    input [RADDRWIDTH-1:0] raddr_a,
-    output [REGWIDTH-1:0] rdata_a,
+    output [15:0] iaddr,
+    input [15:0] idata,
 
-    /* port b */
-    input [RADDRWIDTH-1:0] raddr_b,
-    output [REGWIDTH-1:0] rdata_b,
+    output [15:0] waddr,
+    output [15:0] wdata,
+    output we,
 
-    /* port c */
-    input [RADDRWIDTH-1:0] raddr_c,
-    output [REGWIDTH-1:0] rdata_c,
-
-    /* write port */
-    input we,
-    input [RADDRWIDTH-1:0] waddr,
-    input [REGWIDTH-1:0] wdata
+    output [15:0] raddr,
+    input [15:0] rdata,
+    output re
 );
 
-parameter RADDRWIDTH = 3;
-parameter REGWIDTH = 16;
+cpu cpu0(
+    .clk(clk),
+    .rst(rst),
 
-reg [REGWIDTH-1:0] r[2**RADDRWIDTH-1:1];
+    .iaddr(iaddr),
+    .idata(idata),
 
-always_comb begin
-    if (raddr_a != 0)
-        rdata_a = r[raddr_a];
-    else
-        rdata_a = 0;
+    .waddr(waddr),
+    .wdata(wdata),
+    .we(we),
 
-    if (raddr_b != 0)
-        rdata_b = r[raddr_b];
-    else
-        rdata_b = 0;
-
-    if (raddr_c != 0)
-        rdata_c = r[raddr_c];
-    else
-        rdata_c = 0;
-    //$display("regread: [%d] = %x, [%d] = %x, [%d] = %x", raddr_a, rdata_a, raddr_b, rdata_b, raddr_c, rdata_c);
-end
-
-always_ff @(posedge clk) begin
-    if (rst) begin
-        for (int i = 1; i < 2**RADDRWIDTH; i++)
-            r[i] = 0;
-    end else begin
-        if (we && waddr != 0) begin
-            r[waddr] <= wdata;
-            //$display("regwrite: [%d] = %x", waddr, wdata);
-        end
-    end
-end
+    .raddr(raddr),
+    .rdata(rdata),
+    .re(re)
+);
 
 endmodule
 

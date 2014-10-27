@@ -114,6 +114,7 @@ wire [2:0] branch_reg = reg_b;
 
 logic [15:0] reg_a_out;
 logic [15:0] reg_b_out;
+logic [15:0] reg_d_out;
 logic [15:0] alu_a_in;
 logic [15:0] alu_b_in;
 logic [15:0] alu_result;
@@ -321,12 +322,21 @@ always_comb begin
             end
         endcase
 
+        // handle indirect d writebacks
+        if (reg_d_indirect && do_reg_writeback) begin
+            // once we've handled the read states (if any), start a write cycle
+            // note, this can overlap with the last cycle of a read
+            do_reg_writeback = 0;
+            we = 1;
+            waddr = reg_d_out;
+            wdata = alu_result;
+        end
+
         //$display("S2: ir %x, wb %d, alu rd %d, ra %d, rb %d", ir, do_reg_writeback, reg_d, reg_a, reg_b);
     end
     4'b11??: begin // undefined
     end
     endcase
-
 end
 
 always_ff @(posedge clk) begin
@@ -353,6 +363,9 @@ regfile regs(
 
     .raddr_b(reg_b),
     .rdata_b(reg_b_out),
+
+    .raddr_c(reg_d),
+    .rdata_c(reg_d_out),
 
     .we(do_reg_writeback),
     .waddr(writeback_reg),
