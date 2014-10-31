@@ -22,7 +22,7 @@
  */
 `timescale 1ns/1ns
 
-module memory(
+module memory (
     input clk,
     input rst,
 
@@ -34,26 +34,32 @@ module memory(
     input [AWIDTH-1:0] waddr,
     input [DWIDTH-1:0] wdata
 );
-
 parameter AWIDTH = 16;
 parameter DWIDTH = 16;
+parameter MEMH_FILE = "";
 
 reg [AWIDTH-1:0] raddr_reg;
 
-reg [DWIDTH-1:0] mem [2**DWIDTH-1:0];
+reg [DWIDTH-1:0] mem [2**AWIDTH-1:0];
+
+//initial begin
+//    for (int i = 0; i < 2**AWIDTH-1; i++)
+//        mem[i] = 0;
+//end
+
+initial begin
+    if (MEMH_FILE != "")
+        $readmemh(MEMH_FILE, mem);
+end
 
 /* zero out or register the read */
 always_ff @(posedge clk) begin
-    if (rst) begin
-        rdata <= 0;
-    end else begin
-        if (re) begin
-            rdata <= mem[raddr];
-        end
+    if (we) begin
+        mem[waddr] <= wdata;
+    end
 
-        if (we) begin
-            mem[waddr] <= wdata;
-        end
+    if (re) begin
+        rdata <= mem[raddr];
     end
 end
 

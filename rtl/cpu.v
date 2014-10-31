@@ -47,7 +47,6 @@ localparam DWIDTH = 16;
 /* first stage (instruction fetch) */
 reg [IADDRWIDTH-1:0] pc;
 logic [IADDRWIDTH-1:0] pc_next;
-logic [IADDRWIDTH-1:0] pc_plusone = pc + 1;
 logic [IADDRWIDTH-1:0] s1_ifetch;
 logic s2_to_s1_take_branch;
 logic s2_to_s1_stall;
@@ -59,14 +58,14 @@ always_comb begin
     if (s2_to_s1_stall) begin
         pc_next = pc;
     end else begin
-        pc_next = s2_to_s1_take_branch ? s2_pc_next : pc_plusone; /* default to next instruction */
+        pc_next = s2_to_s1_take_branch ? s2_pc_next : pc + 16'd1; /* default to next instruction */
     end
     s1_ifetch = idata; /* default to whatever is coming back on the instruction bus */
 end
 
 always_ff @(posedge clk) begin
     if (rst) begin
-        pc <= 16'd-1; // causes the first instruction to be 0
+        pc <= 16'hffff; // causes the first instruction to be 0
     end else begin
         pc <= pc_next;
     end
@@ -88,13 +87,6 @@ wire reg_cc_n = reg_cc[3];
 wire reg_cc_z = reg_cc[2];
 wire reg_cc_c = reg_cc[1];
 wire reg_cc_v = reg_cc[0];
-
-/* data memory unit */
-logic re;
-logic [DADDRWIDTH-1:0] raddr;
-logic we;
-logic [DADDRWIDTH-1:0] waddr;
-logic [DWIDTH-1:0] wdata;
 
 /* decoder */
 wire [3:0] op = ir[15:12];
@@ -123,7 +115,7 @@ logic do_reg_writeback;
 logic [2:0] writeback_reg;
 logic [15:0] writeback_result;
 
-typedef enum [2:0] {
+typedef enum logic [2:0] {
     DECODE,
     IR_IMMEDIATE,
     LOAD1,
@@ -186,8 +178,10 @@ always_comb begin
                     endcase
 
                     // wait one cycle, consuming the instruction the fetcher has already grabbed
-                    state_next = BRANCH_DELAY;
-                    ir_next = ir;
+                    if (s2_to_s1_take_branch) begin
+                        state_next = BRANCH_DELAY;
+                        ir_next = ir;
+                    end
                 end
                 BRANCH_DELAY: begin
                     state_next = DECODE;
@@ -229,15 +223,15 @@ always_comb begin
                     mem_immediate_next = s1_ifetch;
                 end
                 IR_IMMEDIATE: begin
-                    // wait one cycle, consuming the instruction the fetcher has already grabbed
-                    state_next = BRANCH_DELAY;
-                    ir_next = ir;
-
                     // add the 16 bit immediate to pc
                     s2_pc_next = pc + mem_immediate;
 
                     // take the branch always
                     s2_to_s1_take_branch = 1;
+
+                    // wait one cycle, consuming the instruction the fetcher has already grabbed
+                    state_next = BRANCH_DELAY;
+                    ir_next = ir;
 
                     // handle bl
                     if (branch_link) begin
@@ -342,7 +336,7 @@ end
 always_ff @(posedge clk) begin
     if (rst) begin
         ir <= 0;
-        state <= 0;
+        state <= DECODE;
         mem_immediate <= 0;
         reg_cc <= 0;
     end else begin
