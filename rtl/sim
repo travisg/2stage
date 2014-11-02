@@ -2,4 +2,4 @@
 
 ../asm/asm.py -x test.hex clearmem.asm || exit 1
 make || exit 1
-./build/Vsim -im test.hex -om out.bin
+time ./build/Vsim -im test.hex -om out.bin

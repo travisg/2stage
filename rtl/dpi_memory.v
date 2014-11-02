@@ -22,64 +22,36 @@
  */
 `timescale 1ns/1ns
 
-module sim(
+module dpi_memory (
     input clk,
-    input rst
+    input rst,
+
+    input re,
+    input [AWIDTH-1:0] raddr,
+    output reg [DWIDTH-1:0] rdata,
+
+    input we,
+    input [AWIDTH-1:0] waddr,
+    input [DWIDTH-1:0] wdata
 );
+parameter AWIDTH = 16;
+parameter DWIDTH = 16;
+parameter INSTANCE = 0;
 
-wire [15:0] iaddr;
-wire [15:0] idata;
+import "DPI-C" function void dpi_mem_write(input integer i, input integer addr, input integer data);
+import "DPI-C" function void dpi_mem_read(input integer i, input integer addr, output integer data);
 
-wire [15:0] waddr;
-wire [15:0] wdata;
-wire we;
+/* zero out or register the read */
+always_ff @(posedge clk) begin
+    if (we) begin
+        dpi_mem_write(INSTANCE, { 16'b0, waddr }, { 16'b0, wdata });
+    end
 
-wire [15:0] raddr;
-wire [15:0] rdata;
-wire re;
+    if (re) begin
+        dpi_mem_read(INSTANCE, { 16'b0, raddr }, { 16'b0, rdata });
+    end
+end
 
-cpu cpu0(
-    .clk(clk),
-    .rst(rst),
 
-    .iaddr(iaddr),
-    .idata(idata),
-
-    .waddr(waddr),
-    .wdata(wdata),
-    .we(we),
-
-    .raddr(raddr),
-    .rdata(rdata),
-    .re(re)
-);
-
-dpi_memory imem(
-    .clk(clk),
-    .rst(rst),
-
-    .raddr(iaddr),
-    .rdata(idata),
-    .re(1),
-
-    .waddr(0),
-    .wdata(0),
-    .we(0)
-);
-
-dpi_memory #(.INSTANCE(1))
-dmem (
-    .clk(clk),
-    .rst(rst),
-
-    .raddr(raddr),
-    .rdata(rdata),
-    .re(re),
-
-    .waddr(waddr),
-    .wdata(wdata),
-    .we(we)
-);
 
 endmodule
-

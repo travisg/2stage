@@ -8,7 +8,7 @@ SRC := \
 	regfile.v
 
 TEST_SRC = testbench.v
-SIM_SRC = sim.v
+SIM_SRC = sim.v dpi_memory.v
 
 #EXTRADEPS := ram.txt makerambanks.py
 EXTRADEPS := test2.asm.hex

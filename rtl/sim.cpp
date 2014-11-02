@@ -25,56 +25,41 @@
 #include <fcntl.h>
 
 #include "Vsim.h"
+#include "Vsim__Dpi.h"
 #include "verilated.h"
 #include <verilated_vcd_c.h>
+
+#define MEMTRACE 0
 
 static uint16_t imemory[65536];
 static uint16_t dmemory[65536];
 
 static uint64_t now = 0;
 
-static void imem_transaction(uint8_t clk, uint8_t re, uint16_t iaddr, uint16_t *idata)
+void dpi_mem_write(int i, int addr, int data)
 {
-    static uint8_t lastclk = 0;
-    static uint16_t lastaddr = 0;
-
-    //printf("now %lu clk %d re %d iaddr 0x%x\n", now, clk, re, iaddr);
-
-    if (clk == 1 && clk != lastclk) {
-        *idata = imemory[lastaddr];
+    if (i == 0) {
+        imemory[addr] = data;
+    } else {
+        dmemory[addr] = data;
     }
 
-    lastclk = clk;
-    lastaddr = iaddr;
+#if MEMTRACE
+    printf("%lu W %d: addr 0x%04x, data 0x%04x\n", now, i, addr, data);
+#endif
 }
 
-static void dmem_transaction(uint8_t clk, uint8_t re, uint16_t raddr, uint16_t *rdata, uint8_t we, uint16_t waddr, uint16_t wdata)
+void dpi_mem_read(int i, int addr, int *data)
 {
-    static uint8_t lastclk = 0;
-    static uint8_t lastre = 0;
-    static uint16_t lastraddr = 0;
-    static uint8_t lastwe = 0;
-    static uint16_t lastwaddr = 0;
-    static uint16_t lastwdata = 0;
-
-    //printf("now %lu clk %d re %d raddr 0x%x we %d waddr 0x%x wdata 0x%x\n",
-    //    now, clk, re, raddr, we, waddr, wdata);
-
-    if (clk == 1 && clk != lastclk && lastre) {
-        *rdata = dmemory[lastraddr];
+    if (i == 0) {
+        *data = imemory[addr];
+    } else {
+        *data = dmemory[addr];
     }
 
-    if (clk == 1 && clk != lastclk && lastwe) {
-        //printf("writing 0x%x to 0x%x\n", lastwdata, lastwaddr);
-        dmemory[lastwaddr] = lastwdata;
-    }
-
-    lastclk = clk;
-    lastre = re;
-    lastraddr = raddr;
-    lastwe = we;
-    lastwaddr = waddr;
-    lastwdata = wdata;
+#if MEMTRACE
+    printf("%lu R %d: addr 0x%04x, data 0x%04x\n", now, i, addr, *data);
+#endif
 }
 
 int main(int argc, char **argv) {
@@ -163,14 +148,6 @@ int main(int argc, char **argv) {
 
         if (now > 20)
             sim->rst = 0;
-
-        /* check for instruction memory */
-        imem_transaction(sim->clk, 1, sim->iaddr, &sim->idata);
-
-        /* check for data memory */
-        dmem_transaction(sim->clk,
-            sim->re, sim->raddr, &sim->rdata,
-            sim->we, sim->waddr, sim->wdata);
 
 #if TRACE
         tfp->dump(now);
