@@ -1,39 +1,73 @@
 registers
 8 registers
 r0 == zero
-r7 == lr
-pc == [r0]
 condition reg NZCV
 
+arch registers (only visible to specific instructions):
+lr  (special reg 0)
+sp  (special reg 1)
+pc  (special reg 2)
+cr  (special reg 3)
+special reg 4-7 unused
+
 ops:
-0000 - add
-0001 - sub
-0010 - and
-0011 - or
-0100 - xor
-0101 - lsl
-0110 - lsr
-0111 - asr
+00000 - mov : d = a + b (no cc writeback)
+00001 - add : d = a + b
+00010 - adc : d = a + b + carry
+00011 - sub : d = a - b
+00100 - sbc : d = a - b - carry
+00101 - and : d = a & b
+00110 - or  : d = a | b
+00111 - xor : d = a ^ b
+01000 - lsl : d = a << b
+01001 - lsr : d = a >> b
+01010 - asr : d = (signed)a >> b
+01011 - ror : d = rotate(a, b)
 
-10xx - branch
+01100 - ldr : d = memory(a + b)
+01101 - str : memory(a + b) = d
 
-11xx - misc
+01110 - pop  : pop a list of regs from stack, ascending
+01111 - push : push a list of regs on stack, descending
+
+10xxx - branch
+
+11xxx - unused
 
 alu ops:
-1111 1100 000 00000
-5432 1098 765 43210
+11111 100 000 00000
+54321 098 765 43210
 -------------------
-OOOO iDDD AAA bbbbb
+OOOOO DDD AAA bbbbb
 
-    d addressing mode:
-     0DDD           - register direct
-     1DDD           - register indirect
-     0000           - dest is r0, throw away result
     b addressing mode:
-              0XXXX - immediate (4 bit signed)
-              10000 - immediate is next instruction word (r0) (16 bit signed)
+              0XXXX - immediate (4 bit signed (except for shifts))
               10BBB - register direct
-              11BBB - register indirect
+              11ida - special switches that affect a and d and b
+                i bit:
+                    b is stored in next word (otherwise b is immediate 0)
+                d bit:
+                    is D reg normal or special
+                a bit:
+                    is A reg normal or special
+
+load/store ops:
+    use the same addressing modes as the alu ops
+
+    ldr/str reg, [reg + reg]
+    ldr/str reg, [reg + imm]
+
+push/pull ops:
+11111 10000000000
+54321 09876543210
+-----------------
+OOOOO PLSCrrrrrrr
+
+push <reglist>
+pop  <reglist>
+
+    register are push/pulled in order, low to high:
+        r1, r2, r3, r4, r5, r6, r7, cr, sp, lr, pc
 
 branch ops:
 11 1111 0000000000
@@ -45,10 +79,11 @@ branch ops:
          10 bit signed offset (-512/511)
 
     long unconditional branch (with link), uses nv conditional:
-10 1111 Lxxxxxxrrr   - b(l) reg
-10 1111 Lxxxxxx000   - b(l) #16bit signed offset (next instruction word)
+10 1111 Lxxxxx0rrr   - b(l) reg
+10 1111 Lxxxxx0000   - b(l) #16bit signed offset (next instruction word)
+10 1111 Lxxxxx1RRR   - b(l) special reg (only lr makes sense here)
 
-        L moves next instruction into r7 (lr register)
+        L moves next instruction into lr register
 
 unused:
 11 11110000000000
@@ -57,7 +92,6 @@ unused:
 11 xxxxxxxxxxxxxx
 
 pseudo instructions:
-    mov d, b    - add d, r0, b
     neg d, b    - sub d, r0, b
     not d, a    - xor d, a, #-1
     neg d       - sub d, r0, d
@@ -66,22 +100,6 @@ pseudo instructions:
     tst a, b    - and r0, a, b
     cmp a, b    - sub r0, a, b
     cmn a, b    - add r0, a, b
-
-special cases:
-    branch to register, use [r0] as target
-        mov [r0], lr - branch to lr
-
-    branch to fixed 16bit address
-        b #imm - mov [r0], #imm
-
-    indirect branch to register
-        b reg  - mov [r0], reg
-
-    double indirect branch to register
-        b reg  - mov [r0], [reg]
-
-    access pc (pc reads as +2) use [r0] as source
-        mov lr, pc - mov r7, [r0]
 
 conditions (ARM style):
 0000 eq          Equal.                                                      Z==1
