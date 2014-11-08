@@ -12,16 +12,24 @@ tokens = (
 )
 
 INSTRUCTIONS = (
+    "mov",
     "add",
+    "adc",
     "sub",
+    "sbc",
     "and",
     "or",
     "xor",
     "lsl",
     "lsr",
     "asr",
+    "ror",
     "b",
     "bl",
+
+    # load/store
+    "ldr",
+    "str",
 
     # different branches
     "beq",
@@ -50,7 +58,7 @@ INSTRUCTIONS = (
     "cmn",
 )
 
-#t_ignore_COMMENT = r';.*'
+t_ignore_COMMENT = r';.*|//.*'
 t_ignore = ' \t'
 
 literals = ':;,[]#'
@@ -77,22 +85,20 @@ def t_NUM(t):
     return t
 
 def t_REGISTER(t):
-    r'[rR]\d|\[[rR]\d\]|sp|\[sp\]|lr|\[lr\]|pc'
+    r'[rR]\d|sp|lr|pc|cr'
 
-    if t.value == 'sp':
-        t.value = ('REGISTER', 6);
-    elif t.value == '[sp]':
-        t.value = ('REGISTER_INDIRECT', 6);
-    elif t.value == 'lr':
-        t.value = ('REGISTER', 7);
-    elif t.value == '[lr]':
-        t.value = ('REGISTER_INDIRECT', 7);
+    if t.value == 'lr':
+        t.value = ('REGISTER', 8);
+    elif t.value == 'sp':
+        t.value = ('REGISTER', 9);
     elif t.value == 'pc':
-        t.value = ('REGISTER_INDIRECT', 0);
-    elif t.value[0] == '[':
-        t.value = ('REGISTER_INDIRECT', int(t.value[2:3]))
+        t.value = ('REGISTER', 10);
+    elif t.value == 'cr':
+        t.value = ('REGISTER', 11);
     else:
         t.value = ('REGISTER', int(t.value[1:2]))
+        if (t.value[1] >= 8):
+            raise LexerError
 
     #print "register %s" % t
     return t

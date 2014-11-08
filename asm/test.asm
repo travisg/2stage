@@ -6,8 +6,8 @@
     nop \
     nop
 
-//AMACRO()
-//AMACRO()
+// foo
+; bar
 
 start:
     // catch all of the addressing modes
@@ -17,17 +17,20 @@ start:
     add r1, CONSTANT
     add r1, 0x1234
     add r1, r2, 1234
-    add r0, [r2]
-    add [r0], [r2]
-    add lr, sp, pc
-    add [lr], [sp]
+    add lr, sp, 0
+    add lr, sp, 4
+    ldr r1, sp, 4
     mov lr, pc
     mov r1
     mov r1, r2
+    nop
     not r1
     not r1, r2
     tst r3, r2
     tst r3
+    ldr r1, r2, r3
+    ldr r1, r2, 0x4
+    str r1, r4
     b   r1
     bl  r1
     b   1      // short branch
@@ -39,17 +42,20 @@ start:
     bl  1      // long branch due to 'l' bit
     b   start   // a label it has seen
     b   end     // a label is has not seen
-    nop
 
     // get all the instructions
+    mov r1, r2
     add r1, r2
+    adc r1, r2
     sub r1, r2
+    sbc r1, r2
     and r1, r2
     or r1, r2
     xor r1, r2
     lsl r1, r2
     lsr r1, r2
     asr r1, r2
+    ror r1, r2
     b   r1
     nop
     mov r1, r2
@@ -59,6 +65,9 @@ start:
     tst r1, r2
     cmp r1, r2
     cmn r1, r2
+
+    ldr r1, r2, r3
+    str r1, r2, r3
 
     beq 99
     bne 99

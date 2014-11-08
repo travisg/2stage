@@ -20,43 +20,52 @@ class IFormat:
         self.atype = atype
 
 opcode_table = {
-    'add': IFormat(0x0000, ITYPE_ALU, ATYPE_DAB),
-    'sub': IFormat(0x1000, ITYPE_ALU, ATYPE_DAB),
-    'and': IFormat(0x2000, ITYPE_ALU, ATYPE_DAB),
-    'or':  IFormat(0x3000, ITYPE_ALU, ATYPE_DAB),
-    'xor': IFormat(0x4000, ITYPE_ALU, ATYPE_DAB),
-    'lsl': IFormat(0x5000, ITYPE_ALU, ATYPE_DAB),
-    'lsr': IFormat(0x6000, ITYPE_ALU, ATYPE_DAB),
-    'asr': IFormat(0x7000, ITYPE_ALU, ATYPE_DAB),
+    'mov': IFormat(0b00000 << 11, ITYPE_ALU, ATYPE_DB),
+    'add': IFormat(0b00001 << 11, ITYPE_ALU, ATYPE_DAB),
+    'adc': IFormat(0b00010 << 11, ITYPE_ALU, ATYPE_DAB),
+    'sub': IFormat(0b00011 << 11, ITYPE_ALU, ATYPE_DAB),
+    'sbc': IFormat(0b00100 << 11, ITYPE_ALU, ATYPE_DAB),
+    'and': IFormat(0b00101 << 11, ITYPE_ALU, ATYPE_DAB),
+    'or':  IFormat(0b00110 << 11, ITYPE_ALU, ATYPE_DAB),
+    'xor': IFormat(0b00111 << 11, ITYPE_ALU, ATYPE_DAB),
+    'lsl': IFormat(0b01000 << 11, ITYPE_ALU, ATYPE_DAB),
+    'lsr': IFormat(0b01001 << 11, ITYPE_ALU, ATYPE_DAB),
+    'asr': IFormat(0b01010 << 11, ITYPE_ALU, ATYPE_DAB),
+    'ror': IFormat(0b01011 << 11, ITYPE_ALU, ATYPE_DAB),
 
-    'beq': IFormat(0x8000 | (0 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'bne': IFormat(0x8000 | (1 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'bcs': IFormat(0x8000 | (2 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'bhs': IFormat(0x8000 | (2 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'bcc': IFormat(0x8000 | (3 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'blo': IFormat(0x8000 | (3 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'bmi': IFormat(0x8000 | (4 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'bpl': IFormat(0x8000 | (5 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'bvs': IFormat(0x8000 | (6 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'bvc': IFormat(0x8000 | (7 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'bhi': IFormat(0x8000 | (8 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'bls': IFormat(0x8000 | (9 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'bge': IFormat(0x8000 | (10 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'blt': IFormat(0x8000 | (11 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'bgt': IFormat(0x8000 | (12 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'ble': IFormat(0x8000 | (13 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
-    'b':   IFormat(0x8000 | (14 << 10), ITYPE_SHORT_OR_LONG_BRANCH, ATYPE_D),
-    'bl':  IFormat(0xb000 | (14 << 10) | (1<<9), ITYPE_LONG_BRANCH, ATYPE_D),
+    'ldr': IFormat(0b01100 << 11, ITYPE_ALU, ATYPE_DAB),
+    'str': IFormat(0b01101 << 11, ITYPE_ALU, ATYPE_DAB),
 
-    'nop': IFormat(0x0000, ITYPE_ALU, ATYPE_NONE), # add
+  #'push': IFormat(0b01110 << 11, ITYPE_ALU, ATYPE_DAB),
+   #'pop': IFormat(0b01111 << 11, ITYPE_ALU, ATYPE_DAB),
 
-    'mov': IFormat(0x0000, ITYPE_ALU, ATYPE_DB), # add
-    'neg': IFormat(0x1000, ITYPE_ALU, ATYPE_DB), # sub
-    'not': IFormat(0x4000, ITYPE_ALU, ATYPE_DA_MINUS1), # xor
-    'teq': IFormat(0x4000, ITYPE_ALU, ATYPE_AB), # xor
-    'tst': IFormat(0x2000, ITYPE_ALU, ATYPE_AB), # and
-    'cmp': IFormat(0x1000, ITYPE_ALU, ATYPE_AB), # sub
-    'cmn': IFormat(0x0000, ITYPE_ALU, ATYPE_AB), # add
+    'beq': IFormat(0b10000 << 11 | (0b0000 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bne': IFormat(0b10000 << 11 | (0b0001 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bcs': IFormat(0b10000 << 11 | (0b0010 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bhs': IFormat(0b10000 << 11 | (0b0010 << 10), ITYPE_SHORT_BRANCH, ATYPE_D), # same as bcs
+    'bcc': IFormat(0b10000 << 11 | (0b0011 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'blo': IFormat(0b10000 << 11 | (0b0011 << 10), ITYPE_SHORT_BRANCH, ATYPE_D), # same as bcc
+    'bmi': IFormat(0b10000 << 11 | (0b0100 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bpl': IFormat(0b10000 << 11 | (0b0101 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bvs': IFormat(0b10000 << 11 | (0b0110 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bvc': IFormat(0b10000 << 11 | (0b0111 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bhi': IFormat(0b10000 << 11 | (0b1000 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bls': IFormat(0b10000 << 11 | (0b1001 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bge': IFormat(0b10000 << 11 | (0b1010 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'blt': IFormat(0b10000 << 11 | (0b1011 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'bgt': IFormat(0b10000 << 11 | (0b1100 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'ble': IFormat(0b10000 << 11 | (0b1101 << 10), ITYPE_SHORT_BRANCH, ATYPE_D),
+    'b':   IFormat(0b10000 << 11 | (0b1110 << 10), ITYPE_SHORT_OR_LONG_BRANCH, ATYPE_D),
+    'bl':  IFormat(0b10000 << 11 | (0b1110 << 10) | (1<<9), ITYPE_LONG_BRANCH, ATYPE_D),
+
+    'nop': IFormat(0b00000 << 11, ITYPE_ALU, ATYPE_NONE), # mov r0, r0
+
+    'neg': IFormat(0b00011 << 11, ITYPE_ALU, ATYPE_DB), # sub d, r0, b
+    'not': IFormat(0b00111 << 11, ITYPE_ALU, ATYPE_DA_MINUS1), # xor d, a, #-1
+    'teq': IFormat(0b00111 << 11, ITYPE_ALU, ATYPE_AB), # xor r0, a, b
+    'tst': IFormat(0b00101 << 11, ITYPE_ALU, ATYPE_AB), # and r0, a, b
+    'cmp': IFormat(0b00011 << 11, ITYPE_ALU, ATYPE_AB), # sub r0, a, b
+    'cmn': IFormat(0b00001 << 11, ITYPE_ALU, ATYPE_AB), # add r0, a, b
 }
 
 FIXUP_TYPE_NONE = 0
@@ -95,9 +104,11 @@ class Codegen_Exception:
 
 def parse_tuple_to_string(t):
     if t[0] == 'REGISTER':
-        return "r%u" % t[1]
-    elif t[0] == 'REGISTER_INDIRECT':
-        return "[r%u]" % t[1]
+        if t[1] == 8: return "lr"
+        elif t[1] == 9: return "sp"
+        elif t[1] == 10: return "pc"
+        elif t[1] == 11: return "cr"
+        else: return "r%u" % t[1]
     elif t[0] == 'NUMBER':
         return "%#x" % t[1]
     elif t[0] == 'ID':
@@ -185,10 +196,10 @@ class Codegen:
 
         # switch based on type
         if (op.itype == ITYPE_ALU):
-            # handle the up to 3 args of the instruction
+            # set the default args
             dest_arg = ('REGISTER', 0)
             a_arg = ('REGISTER', 0)
-            b_arg = ('REGISTER', 0)
+            b_arg = ('NUMBER', 0)
 
             # match args based on instruction atype
             match = False
@@ -206,35 +217,30 @@ class Codegen:
                 elif arg_count == 2:    # add D, D, B
                     dest_arg = ins[1]
                     a_arg = ins[1]
-
-                    # if dest is [reg], then have the A source be just reg
-                    if a_arg[0] == 'REGISTER_INDIRECT':
-                        a_arg = ('REGISTER', a_arg[1])
                     b_arg = ins[2]
                     match = True
                 elif arg_count == 1:    # add D, D, D
                     dest_arg = ins[1]
                     a_arg = ins[1]
-
-                    # if dest is [reg], then have the A source be just reg
-                    if a_arg[0] == 'REGISTER_INDIRECT':
-                        a_arg = ('REGISTER', a_arg[1])
                     b_arg = ins[1]
-
-                    # if dest is [reg], then have the B source be just reg
-                    if b_arg[0] == 'REGISTER_INDIRECT':
-                        b_arg = ('REGISTER', b_arg[1])
                     match = True
             elif op.atype == ATYPE_DB:
-                #ATYPE_DB - add D, B    --- add D, r0, B
+                #ATYPE_DB - add D, B    --- add D, r0, B or add D, A, r0
+                temp_arg = None
                 if arg_count == 2:
                     dest_arg = ins[1]
-                    b_arg = ins[2]
+                    temp_arg = ins[2]
                     match = True
                 elif arg_count == 1:
                     dest_arg = ins[1]
-                    b_arg = ins[1]
+                    temp_arg = ins[1]
                     match = True
+
+                # if its regster to register, use the a slot, and assign immediate to b
+                if match and temp_arg[0] == 'REGISTER':
+                    a_arg = temp_arg
+                else:
+                    b_arg = temp_arg
             elif op.atype == ATYPE_D:
                 #ATYPE_D - b   D
                 if arg_count == 1:
@@ -247,7 +253,7 @@ class Codegen:
                     a_arg = ins[2]
                     b_arg = ('NUMBER', -1)
                     match = True
-                elif arg_count == 2:
+                elif arg_count == 1:
                     dest_arg = ins[1]
                     a_arg = ins[1]
                     b_arg = ('NUMBER', -1)
@@ -258,7 +264,7 @@ class Codegen:
                     a_arg = ins[1]
                     b_arg = ins[2]
                     match = True
-                elif arg_count == 2:
+                elif arg_count == 1:
                     a_arg = ins[1]
                     b_arg = ins[1]
                     match = True
@@ -266,40 +272,49 @@ class Codegen:
             if not match:
                 raise Codegen_Exception("add_instruction: failed to match atype")
 
+            d_special = False
+            a_special = False
+
             # construct the instruction out of the ops
-            # destination has to be a register or indirect register
+            # destination has to be a register
+            # if it's a special register, chop the top bit off and we'll deal with it in the b field
             if dest_arg[0] == 'REGISTER':
-                i.op |= (0 << 11) | dest_arg[1] << 8
-            elif dest_arg[0] == 'REGISTER_INDIRECT':
-                i.op |= (1 << 11) | dest_arg[1] << 8
+                i.op |= (dest_arg[1] & 0x7) << 8
+                if dest_arg[1] >= 8: d_special = True
             else:
                 raise Codegen_Exception("add_instruction: dest is bogus type '%s'" % str(dest_arg))
 
             # a arg can only be register
+            # if it's a special register, chop the top bit off and we'll deal with it in the b field
             if a_arg[0] == 'REGISTER':
-                i.op |= a_arg[1] << 5
+                i.op |= (a_arg[1] & 0x7) << 5
+                if a_arg[1] >= 8: a_special = True
             else:
                 raise Codegen_Exception("add_instruction: a is bogus type '%s'" % str(a_arg))
 
-            # b arg can be any type
+            # b arg can be any type, unless a or d is a special reg,
+            # then b can only be an immediate
             if b_arg[0] == 'REGISTER':
-                i.op |= (2 << 3) | b_arg[1]
-            elif b_arg[0] == 'REGISTER_INDIRECT':
-                i.op |= (3 << 3) | b_arg[1]
+                if d_special or a_special:
+                    raise Codegen_Exception("add_instruction: b cannot be register with special d or a");
+                i.op |= (0b10 << 3) | b_arg[1]
             elif b_arg[0] == 'NUMBER':
                 num = int(b_arg[1])
 
-                # see if we can fit it in a 4 bit signed immediate
-                if num < 8 and num > -7:
+                # if no special regs, and the immediate fits in 4 bits
+                if not d_special and not a_special and num < 8 and num >= -7:
                     # we can use 4 bit immediate
                     i.op |= (0 << 4) | (num & 0xf)
-                elif num < 65536 and num >= -32768:
-                    # going to have to use a full 16 bit immediate
-                    i.op |= (1 << 4)
-                    i.op2 = num & 0xffff
-                    i.op_length = 2
                 else:
-                    raise Codegen_Exception("add_instruction: immediate out of range %d" % int(num))
+                    # if either d or a is special, we'll need to reuse the b field to encode it
+                    i.op |= (0b11 << 3)
+                    if a_special: i.op |= (1 << 0)
+                    if d_special: i.op |= (1 << 1)
+                    if num != 0:
+                        # going to have to use a full 16 bit immediate
+                        i.op |= (1 << 2)
+                        i.op2 = num & 0xffff
+                        i.op_length = 2
             else:
                 raise Codegen_Exception("add_instruction: b is bogus type '%s'" % b_arg)
         elif op.itype == ITYPE_SHORT_BRANCH or op.itype == ITYPE_LONG_BRANCH or op.itype == ITYPE_SHORT_OR_LONG_BRANCH:
@@ -383,6 +398,8 @@ class Codegen:
                 sym = ins.fixup_sym
                 if not sym.resolved:
                     raise Codegen_Exception("fixup; long branch referring to unresolved symbol '%s'" % sym.name)
+
+                # XXX check the range here
 
                 # compute the distance
                 offset = sym.addr - (ins.addr + 2)

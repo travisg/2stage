@@ -11,18 +11,18 @@ cr  (special reg 3)
 special reg 4-7 unused
 
 ops:
-00000 - mov : d = a + b (no cc writeback)
-00001 - add : d = a + b
-00010 - adc : d = a + b + carry
-00011 - sub : d = a - b
-00100 - sbc : d = a - b - carry
-00101 - and : d = a & b
-00110 - or  : d = a | b
-00111 - xor : d = a ^ b
-01000 - lsl : d = a << b
-01001 - lsr : d = a >> b
-01010 - asr : d = (signed)a >> b
-01011 - ror : d = rotate(a, b)
+00000 - mov :      d = a + b (no cc writeback)
+00001 - add : NZCV d = a + b
+00010 - adc : NZCV d = a + b + carry
+00011 - sub : NZCV d = a - b
+00100 - sbc : NZCV d = a - b - carry
+00101 - and : NZ   d = a & b
+00110 - or  : NZ   d = a | b
+00111 - xor : NZ   d = a ^ b
+01000 - lsl : NZ   d = a << b
+01001 - lsr : NZ   d = a >> b
+01010 - asr : NZ   d = (signed)a >> b
+01011 - ror : NZ   d = rotate(a, b)
 
 01100 - ldr : d = memory(a + b)
 01101 - str : memory(a + b) = d
