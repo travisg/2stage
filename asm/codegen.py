@@ -8,10 +8,11 @@ ITYPE_LONG_BRANCH = 4
 # argument types
 ATYPE_NONE      = 1  # nop
 ATYPE_DAB       = 2  # add D, A, B
-ATYPE_DB        = 3  # add D, B    --- add D, r0, B
-ATYPE_D         = 4  # b   D
-ATYPE_DA_MINUS1 = 5  # not D, A    --- xor D, A, #-1
-ATYPE_AB        = 6  # tst A, B    --- xor r0, A, B
+ATYPE_DAB_LS    = 3  # ldr r0, r1, r2
+ATYPE_DB        = 4  # add D, B    --- add D, r0, B
+ATYPE_D         = 5  # b   D
+ATYPE_DA_MINUS1 = 6  # not D, A    --- xor D, A, #-1
+ATYPE_AB        = 7  # tst A, B    --- xor r0, A, B
 
 class IFormat:
     def __init__(self, opcode, itype, atype):
@@ -33,8 +34,8 @@ opcode_table = {
     'asr': IFormat(0b01010 << 11, ITYPE_ALU, ATYPE_DAB),
     'ror': IFormat(0b01011 << 11, ITYPE_ALU, ATYPE_DAB),
 
-    'ldr': IFormat(0b01100 << 11, ITYPE_ALU, ATYPE_DAB),
-    'str': IFormat(0b01101 << 11, ITYPE_ALU, ATYPE_DAB),
+    'ldr': IFormat(0b01100 << 11, ITYPE_ALU, ATYPE_DAB_LS),
+    'str': IFormat(0b01101 << 11, ITYPE_ALU, ATYPE_DAB_LS),
 
   #'push': IFormat(0b01110 << 11, ITYPE_ALU, ATYPE_DAB),
    #'pop': IFormat(0b01111 << 11, ITYPE_ALU, ATYPE_DAB),
@@ -208,8 +209,7 @@ class Codegen:
                 if arg_count == 0:
                     match = True
             elif op.atype == ATYPE_DAB:
-                #ATYPE_DAB - add D, A, B
-                if arg_count == 3:
+                if arg_count == 3:      # add D, A, B
                     dest_arg = ins[1]
                     a_arg = ins[2]
                     b_arg = ins[3]
@@ -223,6 +223,24 @@ class Codegen:
                     dest_arg = ins[1]
                     a_arg = ins[1]
                     b_arg = ins[1]
+                    match = True
+            elif op.atype == ATYPE_DAB_LS:
+                if arg_count == 3:      # ldr D, A, B
+                    dest_arg = ins[1]
+                    a_arg = ins[2]
+                    b_arg = ins[3]
+                    match = True
+                elif arg_count == 2:    # ldr D, B, r0 or ldr D, r0, IMM
+                    dest_arg = ins[1]
+                    # if its two arg, assign immediate to B slot, register to A slot
+                    if ins[2][0] == 'REGISTER':
+                        a_arg = ins[2]
+                    else:
+                        b_arg = ins[2]
+                    match = True
+                elif arg_count == 1:    # ldr D, D, r0
+                    dest_arg = ins[1]
+                    a_arg = ins[1]
                     match = True
             elif op.atype == ATYPE_DB:
                 #ATYPE_DB - add D, B    --- add D, r0, B or add D, A, r0
