@@ -6,6 +6,16 @@ start:
     mov sp, 5
     mov lr, 6
     mov lr, 0
+    mov lr, sp
+
+    ldr r1, r2, r3
+    str r1, r4, r3
+
+    ldr r1, r2, 64
+    ldr r1, 1234
+
+    ldr lr, r2
+    ldr sp, r2
 
     b   pc      // should fall through
 

@@ -104,6 +104,8 @@ wire [2:0] reg_a = ir[7:5];
 wire [1:0] reg_b_addr_mode = ir[4:3];
 wire [2:0] reg_b = ir[2:0];
 wire [15:0] reg_b_imm = ir[3] ? { 12'b111111111111, ir[3:0] } : { 12'b0, ir[3:0] };
+wire is_load = (op == 5'b01100);
+wire is_store = (op == 5'b01101);
 
     /* short branches */
 wire [3:0] branch_cc = ir[13:10];
@@ -122,12 +124,12 @@ logic [15:0] alu_result;
 logic [3:0] alu_cc;
 logic do_reg_writeback;
 logic [15:0] writeback_result;
+logic reg_d_special;
 
 typedef enum logic [2:0] {
     DECODE,
     IR_IMMEDIATE,
     LOAD1,
-    LOAD2,
     BRANCH_DELAY
 } state_t;
 state_t state = DECODE;
@@ -140,6 +142,8 @@ always_comb begin
     reg_cc_next = reg_cc;
     reg_lr_next = reg_lr;
     reg_sp_next = reg_sp;
+
+    reg_d_special = 1'bX;
 
     s2_pc_next = 16'bX;
     alu_a_in = 16'bX;
@@ -260,8 +264,9 @@ always_comb begin
                 default: ;
             endcase
         end
-    end
-    5'b0????: begin // alu op
+    end // branch op
+    5'b00???,
+    5'b010??: begin // alu op
         alu_a_in = reg_a_out;
         writeback_result = alu_result;
 
@@ -304,7 +309,7 @@ always_comb begin
                 if (state_next == DECODE) begin
                     do_reg_writeback = 1;
                     reg_cc_next = alu_cc;
-                    if (ir[1] && state_next == DECODE) begin
+                    if (ir[1]) begin
                         // special d register
                         do_reg_writeback = 0;
                         case (reg_d)
@@ -313,7 +318,7 @@ always_comb begin
                             default: ; // XXX should be undefined
                         endcase
                     end
-                    if (ir[0] && state_next == DECODE) begin
+                    if (ir[0]) begin
                         // special a register
                         case (reg_a)
                             3'd0: alu_a_in = reg_lr;
@@ -324,51 +329,109 @@ always_comb begin
                 end
             end
         endcase
+    end // alu op
 
-/* XXX make load/store
-            2'b11: begin // register b indirect
-                // start a 2 stage read operation
+    5'b0110?: begin // load/store op
+        alu_a_in = reg_a_out;
+        reg_d_special = 0;
+
+        // handle decoding the 2nd input operand
+        casez (reg_b_addr_mode)
+            2'b0?: begin // 4 bit signed immediate
+                alu_b_in = reg_b_imm;
+            end
+            2'b10: begin // register b
+                // normal case where Rb is treated as a register
+                alu_b_in = reg_b_out;
+            end
+            2'b11: begin // special b address
+                if (ir[2]) begin
+                    // The instruction wants us to load the next word in the
+                    // instruction stream as an immediate.
+                    case (state)
+                        DECODE: begin
+                            // wait one cycle for the next word of data from stage1 instruction fetcher
+                            state_next = IR_IMMEDIATE;
+                            ir_next = ir;
+                            mem_immediate_next = s1_ifetch;
+                        end
+                        IR_IMMEDIATE: begin
+                            // we've already waited a cycle, so go back to regular DECODE
+                            state_next = DECODE;
+                            alu_b_in = mem_immediate;
+                        end
+                        default: ;
+                    endcase
+                end else begin
+                    alu_b_in = 16'd0;
+                end
+
+                // decode the d / a regs
+                if (ir[1]) begin
+                    // special d register
+                    reg_d_special = 1;
+                end
+
+                if (ir[0]) begin
+                    // special a register
+                    case (reg_a)
+                        3'd0: alu_a_in = reg_lr;
+                        3'd1: alu_a_in = reg_sp;
+                        default: alu_a_in = 16'd0; // XXX should be undefined
+                    endcase
+                end
+            end
+        endcase
+
+        // do the load/store state machine
+        if (is_load) begin
+            // load, start a 2 stage read operation
+            if (state_next != IR_IMMEDIATE) begin
                 case (state)
-                    DECODE: begin
+                    IR_IMMEDIATE, DECODE: begin
                         // put the address and data out on the bus
                         state_next = LOAD1;
-                        raddr = reg_b_out;
+                        raddr = alu_result;
                         re = 1;
                         ir_next = ir;
                         s2_to_s1_stall = 1;
                     end
                     LOAD1: begin
-                        // let it sit for a clock for the external memory to respond
-                        mem_immediate_next = rdata;
-                        state_next = LOAD2;
-                        ir_next = ir;
-                        s2_to_s1_stall = 1;
-                    end
-                    LOAD2: begin
-                        // we should have it now, go back to regular decode
+                        // rdata should be ready by the end of cycle to register
                         state_next = DECODE;
-                        reg_cc_next = alu_cc;
-                        do_reg_writeback = 1;
-                        alu_b_in = mem_immediate;
+
+                        if (reg_d_special) begin
+                            case (reg_d)
+                                3'd0: reg_lr_next = rdata;
+                                3'd1: reg_sp_next = rdata;
+                                default: ; // XXX should be undefined
+                            endcase
+                        end else begin
+                            writeback_result = rdata;
+                            do_reg_writeback = 1;
+                        end
                     end
                     default: ;
                 endcase
             end
-*/
-
-/*
-        // handle indirect d writebacks
-        if (reg_d_indirect && do_reg_writeback) begin
-            // once we've handled the read states (if any), start a write cycle
-            // note, this can overlap with the last cycle of a read
-            do_reg_writeback = 0;
-            we = 1;
-            waddr = reg_d_out;
-            wdata = alu_result;
+        end else begin
+            // store, dump the result on the bus
+            if (state_next != IR_IMMEDIATE) begin
+                we = 1;
+                waddr = alu_result;
+                if (reg_d_special) begin
+                    case (reg_d)
+                        3'd0: wdata = reg_lr;
+                        3'd1: wdata = reg_sp;
+                        default: wdata = 16'd0; // XXX should be undefined
+                    endcase
+                end else begin
+                    wdata = reg_d_out;
+                end
+            end
         end
-*/
-
-        //$display("S2: ir %x, wb %d, alu rd %d, ra %d, rb %d", ir, do_reg_writeback, reg_d, reg_a, reg_b);
+    end
+    5'b0111?: begin // push/pop op
     end
     5'b11???: begin // undefined
     end
