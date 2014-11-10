@@ -1,14 +1,18 @@
 start:
     mov r2, 1
-    mov r3, FOO
-    add r1, r3, [r2]
-    mov [r1], r3
-    add [r1], r3, [r2]
-    mov [r2], 9876
+    add r3, r2, 4
+    sub r4, r2, 1 // should set Z condition
+
+    mov sp, 5
+    mov lr, 6
+    mov lr, 0
+
+    b   pc      // should fall through
+
+    bl  func
 
 loop:
-    bl func
-    b  0
+    b  loop
     bl  0
     //b loop
     //b start
@@ -16,5 +20,5 @@ loop:
     //bl r1
 
 func:
-    mov r5, 5
+    mov r5, lr
     b lr

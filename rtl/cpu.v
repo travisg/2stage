@@ -77,11 +77,19 @@ end
 
 /* second stage */
 reg [IADDRWIDTH-1:0] ir = 0;
-reg [IADDRWIDTH-1:0] ir_next;
 reg [15:0] mem_immediate;
-reg [15:0] mem_immediate_next;
+
+logic [IADDRWIDTH-1:0] ir_next;
+logic [15:0] mem_immediate_next;
+
+/* special registers */
+reg [15:0] reg_lr;
+reg [15:0] reg_sp;
 reg [3:0]  reg_cc;
-reg [3:0]  reg_cc_next;
+
+logic [15:0] reg_lr_next;
+logic [15:0] reg_sp_next;
+logic [3:0]  reg_cc_next;
 
 wire reg_cc_n = reg_cc[3];
 wire reg_cc_z = reg_cc[2];
@@ -89,19 +97,20 @@ wire reg_cc_c = reg_cc[1];
 wire reg_cc_v = reg_cc[0];
 
 /* decoder */
-wire [3:0] op = ir[15:12];
-wire [2:0] alu_op = ir[14:12];
-wire reg_d_indirect = ir[11];
+wire [4:0] op = ir[15:11];
+wire [3:0] alu_op = ir[14:11];
 wire [2:0] reg_d = ir[10:8];
 wire [2:0] reg_a = ir[7:5];
 wire [1:0] reg_b_addr_mode = ir[4:3];
 wire [2:0] reg_b = ir[2:0];
+wire [15:0] reg_b_imm = ir[3] ? { 12'b111111111111, ir[3:0] } : { 12'b0, ir[3:0] };
 
     /* short branches */
 wire [3:0] branch_cc = ir[13:10];
 wire [15:0] branch_short_offset = ir[9] ? { 6'b111111, ir[9:0] } : { 6'b0, ir[9:0] };
     /* long or register branches */
 wire branch_link = ir[9];
+wire branch_reg_special = ir[3];
 wire [2:0] branch_reg = reg_b;
 
 logic [15:0] reg_a_out;
@@ -112,7 +121,6 @@ logic [15:0] alu_b_in;
 logic [15:0] alu_result;
 logic [3:0] alu_cc;
 logic do_reg_writeback;
-logic [2:0] writeback_reg;
 logic [15:0] writeback_result;
 
 typedef enum logic [2:0] {
@@ -130,6 +138,8 @@ always_comb begin
     ir_next = s1_ifetch;
     mem_immediate_next = mem_immediate;
     reg_cc_next = reg_cc;
+    reg_lr_next = reg_lr;
+    reg_sp_next = reg_sp;
 
     s2_pc_next = 16'bX;
     alu_a_in = 16'bX;
@@ -139,7 +149,6 @@ always_comb begin
     s2_to_s1_stall = 0;
 
     do_reg_writeback = 0;
-    writeback_reg = 3'bX;
     writeback_result = 16'bX;
 
     re = 0;
@@ -149,7 +158,7 @@ always_comb begin
     wdata = 16'bX;
 
     casez (op)
-    4'b10??: begin // branches
+    5'b10???: begin // branches
         if (branch_cc != 4'b1111) begin
             // short conditional branch
             case (state)
@@ -188,11 +197,20 @@ always_comb begin
                 end
                 default: ;
             endcase
-        end else if (branch_reg != 0) begin
-            // cc is 1111 and target reg is !0, register branch
+        end else if (branch_reg_special | branch_reg != 0) begin
+            // cc is 1111 and target reg is !0 or bit 3 is set (special register), register branch
             case (state)
                 DECODE: begin
-                    s2_pc_next = reg_b_out;
+                    if (branch_reg_special) begin
+                        case (branch_reg)
+                            3'd0: s2_pc_next = reg_lr;
+                            3'd1: s2_pc_next = reg_sp;
+                            default: s2_pc_next = pc; // XXX should be undefined
+                        endcase
+                    end else begin
+                        // plain register target
+                        s2_pc_next = reg_b_out;
+                    end
 
                     // take the branch always
                     s2_to_s1_take_branch = 1;
@@ -203,9 +221,7 @@ always_comb begin
 
                     // handle bl
                     if (branch_link) begin
-                       writeback_reg = 7; // lr
-                       do_reg_writeback = 1;
-                       writeback_result = pc;
+                       reg_lr_next = pc;
                     end
                 end
                 BRANCH_DELAY: begin
@@ -235,9 +251,7 @@ always_comb begin
 
                     // handle bl
                     if (branch_link) begin
-                       writeback_reg = 7; // lr
-                       do_reg_writeback = 1;
-                       writeback_result = pc;
+                       reg_lr_next = pc;
                     end
                 end
                 BRANCH_DELAY: begin
@@ -247,21 +261,26 @@ always_comb begin
             endcase
         end
     end
-    4'b0???: begin // alu op
+    5'b0????: begin // alu op
         alu_a_in = reg_a_out;
-        writeback_reg = reg_d;
         writeback_result = alu_result;
 
         // handle the 2nd operand
         casez (reg_b_addr_mode)
             2'b0?: begin // 4 bit signed immediate
-                alu_b_in = ir[3] ? { 12'b111111111111, ir[3:0] } : { 12'b0, ir[3:0] };
+                alu_b_in = reg_b_imm;
                 do_reg_writeback = 1;
                 reg_cc_next = alu_cc;
             end
             2'b10: begin // register b
-                if (reg_b == 0) begin
-                    // special case: Rb == 0. The instruction wants us to load the next word in the
+                // normal case where Rb is treated as a register
+                alu_b_in = reg_b_out;
+                do_reg_writeback = 1;
+                reg_cc_next = alu_cc;
+            end
+            2'b11: begin // special b address
+                if (ir[2]) begin
+                    // The instruction wants us to load the next word in the
                     // instruction stream as an immediate.
                     case (state)
                         DECODE: begin
@@ -273,19 +292,40 @@ always_comb begin
                         IR_IMMEDIATE: begin
                             // we've already waited a cycle, so go back to regular DECODE
                             state_next = DECODE;
-                            do_reg_writeback = 1;
-                            reg_cc_next = alu_cc;
                             alu_b_in = mem_immediate;
                         end
                         default: ;
                     endcase
                 end else begin
-                    // normal case where Rb is treated as a register
-                    alu_b_in = reg_b_out;
+                    alu_b_in = 16'd0;
+                end
+
+                // if we're at the last cycle of the instruction, decode the rest
+                if (state_next == DECODE) begin
                     do_reg_writeback = 1;
                     reg_cc_next = alu_cc;
+                    if (ir[1] && state_next == DECODE) begin
+                        // special d register
+                        do_reg_writeback = 0;
+                        case (reg_d)
+                            3'd0: reg_lr_next = alu_result;
+                            3'd1: reg_sp_next = alu_result;
+                            default: ; // XXX should be undefined
+                        endcase
+                    end
+                    if (ir[0] && state_next == DECODE) begin
+                        // special a register
+                        case (reg_a)
+                            3'd0: alu_a_in = reg_lr;
+                            3'd1: alu_a_in = reg_sp;
+                            default: alu_a_in = 16'd0; // XXX should be undefined
+                        endcase
+                    end
                 end
             end
+        endcase
+
+/* XXX make load/store
             2'b11: begin // register b indirect
                 // start a 2 stage read operation
                 case (state)
@@ -314,8 +354,9 @@ always_comb begin
                     default: ;
                 endcase
             end
-        endcase
+*/
 
+/*
         // handle indirect d writebacks
         if (reg_d_indirect && do_reg_writeback) begin
             // once we've handled the read states (if any), start a write cycle
@@ -325,10 +366,11 @@ always_comb begin
             waddr = reg_d_out;
             wdata = alu_result;
         end
+*/
 
         //$display("S2: ir %x, wb %d, alu rd %d, ra %d, rb %d", ir, do_reg_writeback, reg_d, reg_a, reg_b);
     end
-    4'b11??: begin // undefined
+    5'b11???: begin // undefined
     end
     endcase
 end
@@ -339,11 +381,15 @@ always_ff @(posedge clk) begin
         state <= DECODE;
         mem_immediate <= 0;
         reg_cc <= 0;
+        reg_lr <= 0;
+        reg_sp <= 0;
     end else begin
         ir <= ir_next;
         state <= state_next;
         mem_immediate <= mem_immediate_next;
         reg_cc <= reg_cc_next;
+        reg_lr <= reg_lr_next;
+        reg_sp <= reg_sp_next;
     end
 end
 
@@ -362,7 +408,7 @@ regfile regs(
     .rdata_c(reg_d_out),
 
     .we(do_reg_writeback),
-    .waddr(writeback_reg),
+    .waddr(reg_d),
     .wdata(writeback_result)
 );
 
@@ -372,7 +418,8 @@ alu alu(
     .a(alu_a_in),
     .b(alu_b_in),
     .result(alu_result),
-    .cc(alu_cc)
+    .cc_in(reg_cc),
+    .cc_out(alu_cc)
 );
 
 endmodule

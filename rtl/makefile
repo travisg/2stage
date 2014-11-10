@@ -10,12 +10,11 @@ SRC := \
 TEST_SRC = testbench.v
 SIM_SRC = sim.v dpi_memory.v
 
-#EXTRADEPS := ram.txt makerambanks.py
-EXTRADEPS := test2.asm.hex
+EXTRADEPS := test.hex
 
 all: $(TESTBENCH) $(SIMULATOR)
 
-$(TESTBENCH): $(TEST_SRC) $(SRC) testbench.cpp
+$(TESTBENCH): $(TEST_SRC) $(SRC) testbench.cpp test.hex
 	mkdir -p $(dir $@)
 	verilator -Wno-fatal --top-module testbench --Mdir $(dir $@) -Icpu --exe testbench.cpp --cc -CFLAGS "-DTRACE=1" --trace $(TEST_SRC) $(SRC)
 	make -C $(dir $@) -f Vtestbench.mk
@@ -24,6 +23,9 @@ $(SIMULATOR): $(SIM_SRC) $(SRC) sim.cpp
 	mkdir -p $(dir $@)
 	verilator -Wno-fatal --top-module sim --Mdir $(dir $@) -Icpu --exe sim.cpp --cc -CFLAGS "-DSIMULATION -DTRACE=0" --trace $(SIM_SRC) $(SRC)
 	make -C $(dir $@) -f Vsim.mk
+
+test.hex: test.asm
+	../asm/asm.py -x $@ < test.asm
 
 .PHONY: vcd wave
 
@@ -35,4 +37,5 @@ wave: vcd
 	gtkwave $(BUILD)/trace.vcd
 
 clean::
-	rm -rf $(BUILD)
+	rm -f $(EXTRADEPS)
+	rm -rf $(BUILD) $(EXTRADEPS)
