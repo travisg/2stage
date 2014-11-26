@@ -32,45 +32,49 @@ reg rst = 1;
 always_ff @(posedge clk) begin
     count = count + 1;
 
-    if (count == 2) rst = 0;
+    if (count == 3) rst = 0;
 
-    if (count == 30) $finish;
+    if (count == 100) $finish;
 end
 
-wire [15:0] iaddr;
-wire [15:0] idata;
-
-wire [15:0] waddr;
+wire [15:0] addr;
 wire [15:0] wdata;
-wire we;
-
-wire [15:0] raddr;
 wire [15:0] rdata;
 wire re;
+wire we;
 
 cpu cpu0(
     .clk(clk),
     .rst(rst),
 
-    .iaddr(iaddr),
-    .idata(idata),
-
-    .waddr(waddr),
-    .wdata(wdata),
-    .we(we),
-
-    .raddr(raddr),
+    .addr(addr),
     .rdata(rdata),
-    .re(re)
+    .wdata(wdata),
+    .re(re),
+    .we(we)
 );
 
+memory mem(
+    .clk(clk),
+    .rst(rst),
+
+    .raddr(addr),
+    .rdata(rdata),
+    .re(re),
+
+    .waddr(addr),
+    .wdata(wdata),
+    .we(we)
+);
+
+/*
 memory imem(
     .clk(clk),
     .rst(rst),
 
     .raddr(iaddr),
     .rdata(idata),
-    .re(1),
+    .re(ifetch),
 
     .waddr(0),
     .wdata(0),
@@ -84,18 +88,22 @@ memory dmem(
     .raddr(raddr),
     .rdata(rdata),
     .re(re),
+    .rready(rdata_ready),
 
     .waddr(waddr),
     .wdata(wdata),
-    .we(we)
+    .we(we),
+    .wack(wdata_ack)
 );
+*/
 
-always @* begin
-    $display("count %d, rst %d, iaddr %h, idata %h", count, rst, iaddr, idata);
+always_comb begin
+    $display("count %d, rst %d, addr %h, rdata %h, wdata %h, re %h, we %h", count, rst, addr, rdata, wdata, re, we);
 end
 
 initial begin
-    $readmemh("../test.hex", imem.mem);
+    //$readmemh("../test.hex", imem.mem);
+    $readmemh("../test.hex", mem.mem);
 end
 
 endmodule

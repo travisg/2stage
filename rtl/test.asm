@@ -8,8 +8,11 @@ start:
     mov lr, 0
     mov lr, sp
 
+    mov r3, 0x99
     ldr r1, r2, r3
+    ldr r1, r3, r3
     str r1, r4, r3
+    str pc, r3
 
     ldr r1, r2, 64
     ldr r1, 1234
@@ -22,8 +25,16 @@ start:
     bl  func
 
 loop:
+    nop
+    nop
+    bl  func
+
+    mov r1, 3
+count_loop:
+    sub r1, 1
+    bne count_loop
+
     b  loop
-    bl  0
     //b loop
     //b start
     //b r1

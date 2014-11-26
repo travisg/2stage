@@ -38,8 +38,6 @@ parameter AWIDTH = 16;
 parameter DWIDTH = 16;
 parameter MEMH_FILE = "";
 
-reg [AWIDTH-1:0] raddr_reg;
-
 reg [DWIDTH-1:0] mem [2**AWIDTH-1:0];
 
 //initial begin

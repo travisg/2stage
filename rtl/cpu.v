@@ -27,16 +27,11 @@ module cpu(
     input clk,
     input rst,
 
-    output [IADDRWIDTH-1:0] iaddr,
-    input  [IWIDTH-1:0] idata,
-
-    output [DADDRWIDTH-1:0] waddr,
-    output [DWIDTH-1:0] wdata,
-    output we,
-
-    output [DADDRWIDTH-1:0] raddr,
+    output [IADDRWIDTH-1:0] addr,
     input  [DWIDTH-1:0] rdata,
-    output re
+    output [DWIDTH-1:0] wdata,
+    output re,
+    output we
 );
 
 localparam IADDRWIDTH = 16;
@@ -44,31 +39,48 @@ localparam IWIDTH = 16;
 localparam DADDRWIDTH = 16;
 localparam DWIDTH = 16;
 
+/* shared address bus */
+logic ifetch_active;
+logic load_active;
+logic store_active;
+logic [IADDRWIDTH-1:0] ifetch_address;
+logic [IADDRWIDTH-1:0] load_store_address;
+assign addr = (load_active || store_active) ? load_store_address :
+                ifetch_active ? ifetch_address : 16'X;
+logic ifetch_bus_cycle = ifetch_active && !(load_active || store_active);
+
+assign re = ifetch_active || load_active;
+assign we = store_active;
+
 /* first stage (instruction fetch) */
 reg [IADDRWIDTH-1:0] pc;
-logic [IADDRWIDTH-1:0] pc_next;
 logic [IADDRWIDTH-1:0] s1_ifetch;
+logic [IADDRWIDTH-1:0] pc_next;
+logic s1_ifetch_valid;
 logic s2_to_s1_take_branch;
 logic s2_to_s1_stall;
-logic [15:0] s2_pc_next;
+logic [IADDRWIDTH-1:0] s2_pc_next;
 
-assign iaddr = pc_next;
+assign ifetch_address = pc_next;
 
 always_comb begin
-    if (s2_to_s1_stall) begin
+    if (rst) begin
+        pc_next = 16'hffff;
+        ifetch_active = 0;
+    end else if (s2_to_s1_stall) begin
         pc_next = pc;
+        ifetch_active = 1;
     end else begin
         pc_next = s2_to_s1_take_branch ? s2_pc_next : pc + 16'd1; /* default to next instruction */
+        ifetch_active = 1;
     end
-    s1_ifetch = idata; /* default to whatever is coming back on the instruction bus */
+    s1_ifetch = rdata; /* default to whatever is coming back on the instruction bus */
 end
 
 always_ff @(posedge clk) begin
-    if (rst) begin
-        pc <= 16'hffff; // causes the first instruction to be 0
-    end else begin
-        pc <= pc_next;
-    end
+    pc <= pc_next;
+    /* should there be valid data in s1_ifetch? */
+    s1_ifetch_valid <= ifetch_bus_cycle;
 end
 
 always begin
@@ -79,7 +91,6 @@ end
 reg [IADDRWIDTH-1:0] ir = 0;
 reg [15:0] mem_immediate;
 
-logic [IADDRWIDTH-1:0] ir_next;
 logic [15:0] mem_immediate_next;
 
 /* special registers */
@@ -129,7 +140,8 @@ logic reg_d_special;
 typedef enum logic [2:0] {
     DECODE,
     IR_IMMEDIATE,
-    LOAD1,
+    LS1,
+    LS2,
     BRANCH_DELAY
 } state_t;
 state_t state = DECODE;
@@ -137,7 +149,6 @@ state_t state_next;
 
 always_comb begin
     state_next = state;
-    ir_next = s1_ifetch;
     mem_immediate_next = mem_immediate;
     reg_cc_next = reg_cc;
     reg_lr_next = reg_lr;
@@ -155,11 +166,10 @@ always_comb begin
     do_reg_writeback = 0;
     writeback_result = 16'bX;
 
-    re = 0;
-    raddr = 16'bX;
-    we = 0;
-    waddr = 16'bX;
+    load_active = 0;
+    store_active = 0;
     wdata = 16'bX;
+    load_store_address = 16'bX;
 
     casez (op)
     5'b10???: begin // branches
@@ -193,7 +203,6 @@ always_comb begin
                     // wait one cycle, consuming the instruction the fetcher has already grabbed
                     if (s2_to_s1_take_branch) begin
                         state_next = BRANCH_DELAY;
-                        ir_next = ir;
                     end
                 end
                 BRANCH_DELAY: begin
@@ -221,7 +230,6 @@ always_comb begin
 
                     // wait one cycle, consuming the instruction the fetcher has already grabbed
                     state_next = BRANCH_DELAY;
-                    ir_next = ir;
 
                     // handle bl
                     if (branch_link) begin
@@ -239,7 +247,6 @@ always_comb begin
                 DECODE: begin
                     // wait one cycle for the next word of data from stage1 instruction fetcher
                     state_next = IR_IMMEDIATE;
-                    ir_next = ir;
                     mem_immediate_next = s1_ifetch;
                 end
                 IR_IMMEDIATE: begin
@@ -251,7 +258,6 @@ always_comb begin
 
                     // wait one cycle, consuming the instruction the fetcher has already grabbed
                     state_next = BRANCH_DELAY;
-                    ir_next = ir;
 
                     // handle bl
                     if (branch_link) begin
@@ -291,7 +297,6 @@ always_comb begin
                         DECODE: begin
                             // wait one cycle for the next word of data from stage1 instruction fetcher
                             state_next = IR_IMMEDIATE;
-                            ir_next = ir;
                             mem_immediate_next = s1_ifetch;
                         end
                         IR_IMMEDIATE: begin
@@ -352,7 +357,6 @@ always_comb begin
                         DECODE: begin
                             // wait one cycle for the next word of data from stage1 instruction fetcher
                             state_next = IR_IMMEDIATE;
-                            ir_next = ir;
                             mem_immediate_next = s1_ifetch;
                         end
                         IR_IMMEDIATE: begin
@@ -389,16 +393,17 @@ always_comb begin
             if (state_next != IR_IMMEDIATE) begin
                 case (state)
                     IR_IMMEDIATE, DECODE: begin
-                        // put the address and data out on the bus
-                        state_next = LOAD1;
-                        raddr = alu_result;
-                        re = 1;
-                        ir_next = ir;
+                        // put the address and data out on the bus, enter LS1 state
+                        state_next = LS1;
+
+                        load_store_address = alu_result;
+                        load_active = 1;
                         s2_to_s1_stall = 1;
                     end
-                    LOAD1: begin
-                        // rdata should be ready by the end of cycle to register
-                        state_next = DECODE;
+                    LS1: begin
+                        // do the register writeback, wait one more cycle for the instruction fetcher to catch up
+                        state_next = LS2;
+                        s2_to_s1_stall = 1;
 
                         if (reg_d_special) begin
                             case (reg_d)
@@ -411,23 +416,48 @@ always_comb begin
                             do_reg_writeback = 1;
                         end
                     end
+                    LS2: begin
+                        // if rdata is ready, we can move on to the next instruction
+                        state_next = DECODE;
+                    end
                     default: ;
                 endcase
             end
         end else begin
             // store, dump the result on the bus
             if (state_next != IR_IMMEDIATE) begin
-                we = 1;
-                waddr = alu_result;
-                if (reg_d_special) begin
-                    case (reg_d)
-                        3'd0: wdata = reg_lr;
-                        3'd1: wdata = reg_sp;
-                        default: wdata = 16'd0; // XXX should be undefined
-                    endcase
-                end else begin
-                    wdata = reg_d_out;
-                end
+                case (state)
+                    IR_IMMEDIATE, DECODE: begin
+                        // put the address and data out on the bus
+                        state_next = LS1;
+                        load_store_address = alu_result;
+                        store_active = 1;
+                        s2_to_s1_stall = 1;
+                        if (reg_d_special) begin
+                            case (reg_d)
+                                3'd0: wdata = reg_lr;
+                                3'd1: wdata = reg_sp;
+                                3'd2: wdata = pc;
+                                3'd3: wdata = reg_cc;
+                                default: ; // XXX should be undefined
+                            endcase
+                        end else begin
+                            wdata = reg_d_out;
+                        end
+                    end
+                    LS1: begin
+                        state_next = LS2;
+                        s2_to_s1_stall = 1;
+                    end
+                    LS2: begin
+                        state_next = DECODE;
+                    end
+                    default: ;
+                endcase
+            end
+
+            // based on us being in LS1 the next cycle, put the read address out on the bus
+            if (state_next == LS1) begin
             end
         end
     end
@@ -447,7 +477,14 @@ always_ff @(posedge clk) begin
         reg_lr <= 0;
         reg_sp <= 0;
     end else begin
-        ir <= ir_next;
+        // fetch the next instruction from stage 1
+        if (state_next == DECODE) begin
+            if (s1_ifetch_valid) begin
+                ir <= s1_ifetch;
+            end else begin
+                ir <= 0; // nop
+            end
+        end
         state <= state_next;
         mem_immediate <= mem_immediate_next;
         reg_cc <= reg_cc_next;
