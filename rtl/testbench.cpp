@@ -31,91 +31,91 @@
 static unsigned memory[4096];
 
 void dpi_mem_write(int addr, int data) {
-	memory[addr & 0xFFF] = data;
+    memory[addr & 0xFFF] = data;
 }
 
 void dpi_mem_read(int addr, int *data) {
-	*data = (int) memory[addr & 0xFFF];
+    *data = (int) memory[addr & 0xFFF];
 }
 
 #ifdef TRACE
 static vluint64_t now = 0;
 
 double sc_time_stamp() {
-	return now;
+    return now;
 }
 #endif
 
 int main(int argc, char **argv) {
-	const char *vcdname = "trace.vcd";
-	const char *memname = NULL;
-	int fd;
+    const char *vcdname = "trace.vcd";
+    const char *memname = NULL;
+    int fd;
 
-	while (argc > 1) {
-		if (!strcmp(argv[1], "-o")) {
+    while (argc > 1) {
+        if (!strcmp(argv[1], "-o")) {
 #ifdef TRACE
-			if (argc < 3) {
-				fprintf(stderr,"error: -o requires argument\n");
-				return -1;
-			}
-			vcdname = argv[2];
-			argv += 2;
-			argc -= 2;
-			continue;
+            if (argc < 3) {
+                fprintf(stderr,"error: -o requires argument\n");
+                return -1;
+            }
+            vcdname = argv[2];
+            argv += 2;
+            argc -= 2;
+            continue;
 #else
-			fprintf(stderr,"error: no trace support\n");
-			return -1;
+            fprintf(stderr,"error: no trace support\n");
+            return -1;
 #endif
-		} else if (!strcmp(argv[1], "-om")) {
-			if (argc < 3) {
-				fprintf(stderr, "error: -om requires argument\n");
-				return -1;
-			}
-			memname = argv[2];
-			argv += 2;
-			argc -= 3;
-		} else {
-			break;
-		}
-	}
+        } else if (!strcmp(argv[1], "-om")) {
+            if (argc < 3) {
+                fprintf(stderr, "error: -om requires argument\n");
+                return -1;
+            }
+            memname = argv[2];
+            argv += 2;
+            argc -= 3;
+        } else {
+            break;
+        }
+    }
 
-	Verilated::commandArgs(argc, argv);
-	Verilated::debug(0);
-	Verilated::randReset(2);
+    Verilated::commandArgs(argc, argv);
+    Verilated::debug(0);
+    Verilated::randReset(2);
 
-	Vtestbench *testbench = new Vtestbench;
-	testbench->clk = 0;
+    Vtestbench *testbench = new Vtestbench;
+    testbench->clk = 0;
 
 #ifdef TRACE
-	Verilated::traceEverOn(true);
-	VerilatedVcdC* tfp = new VerilatedVcdC;
-	testbench->trace(tfp, 99);
-	tfp->open(vcdname);
+    Verilated::traceEverOn(true);
+    VerilatedVcdC* tfp = new VerilatedVcdC;
+    testbench->trace(tfp, 99);
+    tfp->open(vcdname);
 #endif
 
-	while (!Verilated::gotFinish()) {
-		testbench->clk = !testbench->clk;
-		testbench->eval();
+    while (!Verilated::gotFinish()) {
+        testbench->clk = !testbench->clk;
+        testbench->eval();
 #ifdef TRACE
-		tfp->dump(now);
-		now += 5;
+        tfp->dump(now);
+        now += 5;
 #endif
-	}
+    }
 #ifdef TRACE
-	tfp->close();
+    tfp->close();
 #endif
-	testbench->final();
-	delete testbench;
+    testbench->final();
+    delete testbench;
 
-	if (memname != NULL) {
-		fd = open(memname, O_WRONLY | O_CREAT | O_TRUNC, 0640);
-		if (fd < 0) {
-			fprintf(stderr, "cannot open '%s' for writing\n", memname);
-			return -1;
-		}
-		write(fd, memory, sizeof(memory));
-		close(fd);
-	}
-	return 0;
+    if (memname != NULL) {
+        fd = open(memname, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+        if (fd < 0) {
+            fprintf(stderr, "cannot open '%s' for writing\n", memname);
+            return -1;
+        }
+        write(fd, memory, sizeof(memory));
+        close(fd);
+    }
+    return 0;
 }
 
