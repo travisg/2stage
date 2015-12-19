@@ -27,56 +27,32 @@ module sim(
     input rst
 );
 
-wire [15:0] iaddr;
-wire [15:0] idata;
-
-wire [15:0] waddr;
-wire [15:0] wdata;
-wire we;
-
-wire [15:0] raddr;
+wire [15:0] addr;
 wire [15:0] rdata;
+wire [15:0] wdata;
 wire re;
+wire we;
 
 cpu cpu0(
     .clk(clk),
     .rst(rst),
 
-    .iaddr(iaddr),
-    .idata(idata),
-
-    .waddr(waddr),
-    .wdata(wdata),
-    .we(we),
-
-    .raddr(raddr),
+    .addr(addr),
     .rdata(rdata),
-    .re(re)
+    .wdata(wdata),
+    .re(re),
+    .we(we)
 );
 
-dpi_memory imem(
+dpi_memory mem(
     .clk(clk),
     .rst(rst),
 
-    .raddr(iaddr),
-    .rdata(idata),
-    .re(1),
-
-    .waddr(0),
-    .wdata(0),
-    .we(0)
-);
-
-dpi_memory #(.INSTANCE(1))
-dmem (
-    .clk(clk),
-    .rst(rst),
-
-    .raddr(raddr),
+    .raddr(addr),
     .rdata(rdata),
     .re(re),
 
-    .waddr(waddr),
+    .waddr(addr),
     .wdata(wdata),
     .we(we)
 );

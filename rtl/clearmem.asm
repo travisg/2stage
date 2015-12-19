@@ -2,8 +2,8 @@ start:
     mov r2, 0
 
 again:
-    mov r1, 0
-    mov r3, 32768
+    mov r1, 0x8000
+    mov r3, 0x8000
 loop:
     str r2, r1
     add r1, 1

@@ -31,18 +31,13 @@
 
 #define MEMTRACE 0
 
-static uint16_t imemory[65536];
-static uint16_t dmemory[65536];
+static uint16_t memory[65536];
 
 static uint64_t now = 0;
 
 void dpi_mem_write(int i, int addr, int data)
 {
-    if (i == 0) {
-        imemory[addr] = data;
-    } else {
-        dmemory[addr] = data;
-    }
+    memory[addr] = data;
 
 #if MEMTRACE
     printf("%lu W %d: addr 0x%04x, data 0x%04x\n", now, i, addr, data);
@@ -51,11 +46,7 @@ void dpi_mem_write(int i, int addr, int data)
 
 void dpi_mem_read(int i, int addr, int *data)
 {
-    if (i == 0) {
-        *data = imemory[addr];
-    } else {
-        *data = dmemory[addr];
-    }
+    *data = memory[addr];
 
 #if MEMTRACE
     printf("%lu R %d: addr 0x%04x, data 0x%04x\n", now, i, addr, *data);
@@ -64,7 +55,7 @@ void dpi_mem_read(int i, int addr, int *data)
 
 int main(int argc, char **argv) {
     const char *vcdname = "sim_trace.vcd";
-    const char *imemname = NULL;
+    const char *memname = NULL;
     const char *omemname = NULL;
 
     while (argc > 1) {
@@ -84,10 +75,10 @@ int main(int argc, char **argv) {
 #endif
         } else if (!strcmp(argv[1], "-im")) {
             if (argc < 2) {
-                fprintf(stderr, "error: -im requires argument\n");
+                fprintf(stderr, "error: -om requires argument\n");
                 return -1;
             }
-            imemname = argv[2];
+            memname = argv[2];
             argv += 2;
             argc -= 3;
         } else if (!strcmp(argv[1], "-om")) {
@@ -103,11 +94,11 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (imemname) {
+    if (memname) {
         /* load memory from .hex file */
-        FILE *fp = fopen(imemname, "r");
+        FILE *fp = fopen(memname, "r");
         if (!fp) {
-            fprintf(stderr, "cannot open '%s' for reading\n", imemname);
+            fprintf(stderr, "cannot open '%s' for reading\n", memname);
             return -1;
         }
 
@@ -119,7 +110,7 @@ int main(int argc, char **argv) {
             if (ret != 1)
                 break;
 
-            imemory[addr] = data & 0xffff;
+            memory[addr] = data & 0xffff;
             addr++;
         }
 
@@ -168,7 +159,7 @@ int main(int argc, char **argv) {
             fprintf(stderr, "cannot open '%s' for writing\n", omemname);
             return -1;
         }
-        write(fd, dmemory, sizeof(dmemory));
+        write(fd, memory, sizeof(memory));
         close(fd);
     }
 

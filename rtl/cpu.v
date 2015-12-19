@@ -409,6 +409,8 @@ always_comb begin
                             case (reg_d)
                                 3'd0: reg_lr_next = rdata;
                                 3'd1: reg_sp_next = rdata;
+                                3'd2: ; // XXX implement pc load here
+                                3'd3: reg_cc_next = rdata[3:0];
                                 default: ; // XXX should be undefined
                             endcase
                         end else begin
@@ -438,7 +440,7 @@ always_comb begin
                                 3'd0: wdata = reg_lr;
                                 3'd1: wdata = reg_sp;
                                 3'd2: wdata = pc;
-                                3'd3: wdata = reg_cc;
+                                3'd3: wdata = { 12'd0, reg_cc };
                                 default: ; // XXX should be undefined
                             endcase
                         end else begin
