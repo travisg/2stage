@@ -1,3 +1,4 @@
+import array
 
 # general class of instruction
 ITYPE_ALU = 1
@@ -72,19 +73,45 @@ opcode_table = {
 FIXUP_TYPE_NONE = 0
 FIXUP_TYPE_SHORT_BRANCH = 1
 FIXUP_TYPE_LONG_BRANCH = 2
+FIXUP_TYPE_SYMBOL_LONG = 3
+FIXUP_TYPE_DATA_SYMBOL_LONG = 4
 
-class Instruction:
-    op = 0
-    op2 = 0
-    op_length = 1
+class OutputData:
     addr = 0
+    length = 0
     string = ""
     fixup_type = FIXUP_TYPE_NONE
     fixup_sym = None
 
+class Instruction(OutputData):
+    op = 0
+    op2 = 0
+
+    def hex_string(self):
+        string = "%04x // 0x%04x %s\n" % (self.op, self.addr, self.string)
+        if self.length == 2:
+            string += "%04x\n"  % (self.op2)
+        return string
+
     def __str__(self):
         return "Instruction op 0x%004x 0x%04x, address 0x%04x '%s' fixup type %d sym: %s" % (
                 self.op, self.op2, self.addr, self.string, self.fixup_type, str(self.fixup_sym))
+
+class Data(OutputData):
+    data = None
+
+    def hex_string(self):
+        string = ""
+        for i in range(self.length):
+            if i == 0:
+                string +="%04x // %s\n" % (self.data[i], self.string)
+            else:
+                string +="%04x\n" % self.data[i]
+        return string
+
+    def __str__(self):
+        return "Data '%s', address 0x%04x '%s' fixup type %d sym: %s" % (
+                self.data, self.addr, self.string, self.fixup_type, str(self.fixup_sym))
 
 class Symbol:
     name = ""
@@ -136,7 +163,7 @@ def parse_ins_to_string(ins):
 
 class Codegen:
     cur_addr = 0
-    instructions = []
+    output = []
     symbols = {}
     verbose = False
 
@@ -176,6 +203,62 @@ class Codegen:
 
     def add_directive(self, ins):
         if self.verbose: print "add directive %s" % str(ins)
+        if ins[0] == ".word":
+            d = Data()
+            d.addr = self.cur_addr
+            d.length = 1
+            d.data = array.array('H')
+            if ins[1][0] == 'NUMBER':
+                num = int(ins[1][1])
+                d.string = ".word %04x" % num
+                d.data.append(num)
+            elif ins[1][0] == 'ID':
+                # 16 bit long address, target is unresolved
+                d.fixup_type = FIXUP_TYPE_DATA_SYMBOL_LONG;
+                d.fixup_sym = self.get_symbol_ref(ins[1][1])
+                d.string = ".word %s" % ins[1][1]
+            self.output.append(d)
+            self.cur_addr += d.length
+        elif ins[0] in { ".ascii", ".asciiz" }:
+            if type(ins[1]) is not str:
+                raise Codegen_Exception("add_directive: .ascii used without string")
+
+            d = Data()
+            d.string = "%s '%s'" % (ins[0], ins[1])
+            d.addr = self.cur_addr
+            d.data = array.array('H')
+
+            for c in ins[1]:
+                d.data.append(ord(c))
+            if ins[0] == ".asciiz":
+                d.data.append(0)
+
+            d.length = len(d.data)
+
+            self.output.append(d)
+            self.cur_addr += d.length
+        elif ins[0] in { ".asciib", ".asciibz" }:
+            if type(ins[1]) is not str:
+                raise Codegen_Exception("add_directive: .asciib used without string")
+
+            # null terminate and make sure string length is a multiple of 2
+            s = ins[1]
+            if ins[0] == ".asciibz":
+                s += '\0'
+            if len(s) % 2:
+                s += '\0'
+
+            d = Data()
+            d.addr = self.cur_addr
+            d.data = array.array('H')
+            d.data.fromstring(s)
+            d.string = "%s '%s'" % (ins[0], ins[1])
+            d.length = len(d.data)
+
+            self.output.append(d)
+            self.cur_addr += d.length
+        else:
+            raise Codegen_Exception("add_directive: unknown directive '%s'" % ins[0])
 
     def add_instruction(self, ins):
         if self.verbose: print "add instruction %s" % str(ins)
@@ -191,7 +274,7 @@ class Codegen:
             raise Codegen_Exception("add_instruction: unknown instruction '%s'" % ins[0])
 
         i.op = op.opcode
-        i.op_length = 1
+        i.length = 1
 
         arg_count = len(ins) - 1
 
@@ -332,7 +415,21 @@ class Codegen:
                         # going to have to use a full 16 bit immediate
                         i.op |= (1 << 2)
                         i.op2 = num & 0xffff
-                        i.op_length = 2
+                        i.length = 2
+            elif b_arg[0] == 'ID':
+                # store the eventual absolute address
+                i.fixup_type = FIXUP_TYPE_SYMBOL_LONG;
+                i.fixup_sym = self.get_symbol_ref(b_arg[1])
+
+                # if either d or a is special, we'll need to reuse the b field to encode it
+                i.op |= (0b11 << 3)
+                if a_special: i.op |= (1 << 0)
+                if d_special: i.op |= (1 << 1)
+
+                # going to have to use a full 16 bit immediate
+                i.op |= (1 << 2)
+                i.op2 = 0; # patched later
+                i.length = 2
             else:
                 raise Codegen_Exception("add_instruction: b is bogus type '%s'" % b_arg)
         elif op.itype == ITYPE_SHORT_BRANCH or op.itype == ITYPE_LONG_BRANCH or op.itype == ITYPE_SHORT_OR_LONG_BRANCH:
@@ -382,11 +479,11 @@ class Codegen:
                 elif arg[0] == 'NUMBER':
                     # it's a 16bit signed immediate 2-word branch
                     i.op2 = (arg[1] & 0xffff);
-                    i.op_length += 1
+                    i.length += 1
                 elif arg[0] == 'ID':
                     # 16 bit long address, target is unresolved
                     i.op2 = 0;
-                    i.op_length += 1
+                    i.length += 1
                     i.fixup_type = FIXUP_TYPE_LONG_BRANCH;
                     i.fixup_sym = self.get_symbol_ref(arg[1])
                     pass
@@ -395,11 +492,11 @@ class Codegen:
 
         i.string = parse_ins_to_string(ins)
 
-        self.instructions.append(i)
-        self.cur_addr += i.op_length
+        self.output.append(i)
+        self.cur_addr += i.length
 
     def handle_fixups(self):
-        for ins in self.instructions:
+        for ins in self.output:
             if ins.fixup_type == FIXUP_TYPE_SHORT_BRANCH:
                 sym = ins.fixup_sym
                 if not sym.resolved:
@@ -424,19 +521,31 @@ class Codegen:
 
                 # patch the instruction
                 ins.op2 = offset & 0xffff
+            elif ins.fixup_type == FIXUP_TYPE_SYMBOL_LONG:
+                sym = ins.fixup_sym
+                if not sym.resolved:
+                    raise Codegen_Exception("fixup; instruction referring to unresolved symbol '%s'" % sym.name)
 
-    def dump_instructions(self):
-        for ins in self.instructions:
+                # patch the instruction
+                ins.op2 = sym.addr & 0xffff
+            elif ins.fixup_type == FIXUP_TYPE_DATA_SYMBOL_LONG:
+                sym = ins.fixup_sym
+                if not sym.resolved:
+                    raise Codegen_Exception("fixup; data referring to unresolved symbol '%s'" % sym.name)
+
+                # patch the data reference
+                ins.data.append(sym.addr)
+
+    def dump_output(self):
+        for ins in self.output:
             print ins
     def dump_symbols(self):
         for sym in self.symbols:
             print self.symbols[sym]
 
     def output_hex(self, hexfile):
-        for ins in self.instructions:
-            hexfile.write("%04x // 0x%04x %s\n" % (ins.op, ins.addr, ins.string))
-            if ins.op_length == 2:
-                hexfile.write("%04x\n"  % (ins.op2))
+        for out in self.output:
+            hexfile.write(out.hex_string())
 
     def output_binary(self, binfile):
         print "output_binary: UNIMPLEMENTED!"

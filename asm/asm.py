@@ -20,6 +20,7 @@ def main():
 
     code = codegen.Codegen()
     lexparse.codegen = code
+    code.verbose = False
 
     # preprocess the assembly
     cpp = subprocess.Popen(['cpp','-nostdinc'], stdin=args.infile, stdout=subprocess.PIPE)
@@ -35,8 +36,8 @@ def main():
     code.handle_fixups()
 
     if args.verbose:
-        print "dumping instructions:"
-        code.dump_instructions()
+        print "dumping instructions/data:"
+        code.dump_output()
         print "dumping symbols:"
         code.dump_symbols()
 
