@@ -250,77 +250,56 @@ module top(
 //assign LEDG = 9'h0;
 //assign LEDR = 18'h0;
 
-wire [15:0] iaddr;
-wire [15:0] idata;
-
-wire [15:0] waddr;
+wire [15:0] addr;
 wire [15:0] wdata;
-wire we;
-
-wire [15:0] raddr;
 wire [15:0] rdata;
 wire re;
+wire we;
 
 wire clk = CLOCK_50;
-wire rst = ~KEY[0];
+logic rst;
+
+always_ff @(posedge clk) begin
+    rst <= ~KEY[0];
+end
 
 cpu cpu0(
     .clk(clk),
     .rst(rst),
 
-    .iaddr(iaddr),
-    .idata(idata),
-
-    .waddr(waddr),
-    .wdata(wdata),
+    .addr(addr),
+    .re(re),
     .we(we),
-
-    .raddr(raddr),
-    .rdata(rdata),
-    .re(re)
+    .wdata(wdata),
+    .rdata(rdata)
 );
 
 memory #(.AWIDTH(16), .MEMH_FILE("../test.hex"))
-imem(
+mem(
     .clk(clk),
     .rst(rst),
 
-    .raddr(iaddr),
-    .rdata(idata),
-    .re(1),
-
-    .waddr(0),
-    .wdata(0),
-    .we(0)
-);
-
-memory #(.AWIDTH(16))
-dmem(
-    .clk(clk),
-    .rst(rst),
-
-    .raddr(raddr),
+    .raddr(addr),
     .rdata(rdata),
     .re(re),
 
-    .waddr(waddr),
+    .waddr(addr),
     .wdata(wdata),
     .we(we)
 );
 
-assign LEDR = { 2'b0, iaddr };
+assign LEDR = { we, re, addr };
+assign LEDG = 0;
 
-seven_segment s0(wdata[3:0], HEX0);
-seven_segment s1(wdata[7:4], HEX1);
-seven_segment s2(wdata[11:8], HEX2);
-seven_segment s3(wdata[15:12], HEX3);
+seven_segment s0(rdata[3:0], HEX0);
+seven_segment s1(rdata[7:4], HEX1);
+seven_segment s2(rdata[11:8], HEX2);
+seven_segment s3(rdata[15:12], HEX3);
 
-seven_segment s4(waddr[3:0], HEX4);
-seven_segment s5(waddr[7:4], HEX5);
-seven_segment s6(waddr[11:8], HEX6);
-seven_segment s7(waddr[15:12], HEX7);
-
-assign LEDR[15:0] = iaddr;
+seven_segment s4(addr[3:0], HEX4);
+seven_segment s5(addr[7:4], HEX5);
+seven_segment s6(addr[11:8], HEX6);
+seven_segment s7(addr[15:12], HEX7);
 
 endmodule
 

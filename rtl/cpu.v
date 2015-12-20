@@ -46,8 +46,8 @@ logic store_active;
 logic [IADDRWIDTH-1:0] ifetch_address;
 logic [IADDRWIDTH-1:0] load_store_address;
 assign addr = (load_active || store_active) ? load_store_address :
-                ifetch_active ? ifetch_address : 16'X;
-logic ifetch_bus_cycle = ifetch_active && !(load_active || store_active);
+                ifetch_active ? ifetch_address : 16'dX;
+wire ifetch_bus_cycle = ifetch_active && !(load_active || store_active);
 
 assign re = ifetch_active || load_active;
 assign we = store_active;
