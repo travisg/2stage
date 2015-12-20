@@ -82,8 +82,8 @@ module top(
     //////////// RS232 //////////
     //output                      UART_CTS,
     //input                       UART_RTS,
-    //input                       UART_RXD,
-    //output                      UART_TXD,
+    input                       UART_RXD,
+    output                      UART_TXD,
 
     //////////// PS2 //////////
     //inout                       PS2_CLK,
@@ -250,56 +250,141 @@ module top(
 //assign LEDG = 9'h0;
 //assign LEDR = 18'h0;
 
-wire [15:0] addr;
-wire [15:0] wdata;
-wire [15:0] rdata;
-wire re;
-wire we;
+wire [15:0] cpu_addr;
+wire [15:0] cpu_wdata;
+wire [15:0] cpu_rdata;
+wire cpu_re;
+wire cpu_we;
 
-wire clk = CLOCK_50;
+wire in_clk = CLOCK_50;
+
+logic clk;
 logic rst;
 
-always_ff @(posedge clk) begin
+reg [24:0] counter = 0;
+
+always_ff @(posedge in_clk) begin
+    counter <= counter + 1;
     rst <= ~KEY[0];
 end
+
+assign clk = SW[0] ? counter[24] : in_clk;
 
 cpu cpu0(
     .clk(clk),
     .rst(rst),
 
-    .addr(addr),
-    .re(re),
-    .we(we),
-    .wdata(wdata),
-    .rdata(rdata)
+    .addr(cpu_addr),
+    .re(cpu_re),
+    .we(cpu_we),
+    .wdata(cpu_wdata),
+    .rdata(cpu_rdata)
 );
 
-memory #(.AWIDTH(16), .MEMH_FILE("../test.hex"))
+wire [15:0] mem_addr;
+wire [15:0] mem_wdata;
+wire [15:0] mem_rdata;
+wire mem_re;
+wire mem_we;
+
+memory #(.AWIDTH(8), .MEMH_FILE("../test.hex"))
 mem(
     .clk(clk),
     .rst(rst),
 
-    .raddr(addr),
-    .rdata(rdata),
-    .re(re),
+    .raddr(mem_addr),
+    .rdata(mem_rdata),
+    .re(mem_re),
 
-    .waddr(addr),
-    .wdata(wdata),
-    .we(we)
+    .waddr(mem_addr),
+    .wdata(mem_wdata),
+    .we(mem_we)
 );
 
-assign LEDR = { we, re, addr };
+wire io_addr;
+wire [31:0] io_wdata;
+wire [31:0] io_rdata;
+wire io_re;
+wire io_we;
+wire [3:0] io_byteenable;
+
+ip ip(
+    .clk(in_clk),
+    .reset(rst),
+    .irq(),
+    .address(io_addr),
+    .chipselect(io_re || io_we),
+    .byteenable(io_byteenable),
+    .read(io_re),
+    .write(io_we),
+    .writedata(io_wdata),
+    .readdata(io_rdata),
+    .UART_RXD(UART_RXD),
+    .UART_TXD(UART_TXD)
+);
+
+typedef enum logic [0:0] {
+    MEM,
+    IO
+} device_read_sel_t;
+device_read_sel_t device_read_sel = MEM;
+device_read_sel_t device_read_sel_next;
+
+// bus decoder
+always_comb begin
+    // defaults for memory
+    mem_re = 0;
+    mem_we = 0;
+    mem_addr = { 8'd0, cpu_addr };
+    mem_wdata = cpu_wdata;
+
+    // defaults for io
+    io_re = 0;
+    io_we = 0;
+    io_addr = cpu_addr[1];
+    io_wdata = 32'bX;
+    io_byteenable = 4'bX;
+
+    if (cpu_addr < 'hf000) begin
+        mem_re = cpu_re;
+        mem_we = cpu_we;
+        device_read_sel_next = MEM;
+    end else begin
+        io_re = cpu_re;
+        io_we = cpu_we;
+        io_byteenable = cpu_addr[0] ? 4'b1100 : 4'b0011;
+        device_read_sel_next = IO;
+        io_wdata = { cpu_wdata, cpu_wdata };
+    end
+
+    // the read path back to the cpu lags behind by a clock, which is tracked
+    // in the device_read_sel register
+    case (device_read_sel)
+    MEM: begin
+        cpu_rdata = mem_rdata;
+    end
+    IO: begin
+        cpu_rdata = cpu_addr[0] ? io_rdata[31:16] : io_rdata[15:0];
+    end
+    endcase
+end
+
+always_ff @(posedge clk) begin
+    device_read_sel <= device_read_sel_next;
+end
+
+assign LEDR = { cpu_we, cpu_re, cpu_addr };
 assign LEDG = 0;
 
-seven_segment s0(rdata[3:0], HEX0);
-seven_segment s1(rdata[7:4], HEX1);
-seven_segment s2(rdata[11:8], HEX2);
-seven_segment s3(rdata[15:12], HEX3);
+seven_segment s0(cpu_rdata[3:0], HEX0);
+seven_segment s1(cpu_rdata[7:4], HEX1);
+seven_segment s2(cpu_rdata[11:8], HEX2);
+seven_segment s3(cpu_rdata[15:12], HEX3);
 
-seven_segment s4(addr[3:0], HEX4);
-seven_segment s5(addr[7:4], HEX5);
-seven_segment s6(addr[11:8], HEX6);
-seven_segment s7(addr[15:12], HEX7);
+seven_segment s4(cpu_addr[3:0], HEX4);
+seven_segment s5(cpu_addr[7:4], HEX5);
+seven_segment s6(cpu_addr[11:8], HEX6);
+seven_segment s7(cpu_addr[15:12], HEX7);
 
 endmodule
 
