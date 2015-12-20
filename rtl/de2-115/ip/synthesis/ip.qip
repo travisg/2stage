@@ -1,0 +1,46 @@
+set_global_assignment -entity "ip" -library "ip" -name IP_TOOL_NAME "Qsys"
+set_global_assignment -entity "ip" -library "ip" -name IP_TOOL_VERSION "15.1"
+set_global_assignment -entity "ip" -library "ip" -name IP_TOOL_ENV "Qsys"
+set_global_assignment -library "ip" -name SOPCINFO_FILE [file join $::quartus(qip_path) "../../ip.sopcinfo"]
+set_global_assignment -entity "ip" -library "ip" -name SLD_INFO "QSYS_NAME ip HAS_SOPCINFO 1 GENERATION_ID 1450570448"
+set_global_assignment -library "ip" -name MISC_FILE [file join $::quartus(qip_path) "../ip.cmp"]
+set_global_assignment -library "ip" -name SLD_FILE [file join $::quartus(qip_path) "ip.debuginfo"]
+set_global_assignment -entity "ip" -library "ip" -name IP_TARGETED_DEVICE_FAMILY "Cyclone IV E"
+set_global_assignment -entity "ip" -library "ip" -name IP_GENERATED_DEVICE_FAMILY "{Cyclone IV E}"
+set_global_assignment -entity "ip" -library "ip" -name IP_QSYS_MODE "STANDALONE"
+set_global_assignment -name SYNTHESIS_ONLY_QIP ON
+set_global_assignment -library "ip" -name MISC_FILE [file join $::quartus(qip_path) "../../ip.qsys"]
+set_global_assignment -entity "ip" -library "ip" -name IP_COMPONENT_NAME "aXA="
+set_global_assignment -entity "ip" -library "ip" -name IP_COMPONENT_DISPLAY_NAME "aXA="
+set_global_assignment -entity "ip" -library "ip" -name IP_COMPONENT_REPORT_HIERARCHY "On"
+set_global_assignment -entity "ip" -library "ip" -name IP_COMPONENT_INTERNAL "Off"
+set_global_assignment -entity "ip" -library "ip" -name IP_COMPONENT_VERSION "MS4w"
+set_global_assignment -entity "ip" -library "ip" -name IP_COMPONENT_PARAMETER "QVVUT19HRU5FUkFUSU9OX0lE::MTQ1MDU3MDQ0OA==::QXV0byBHRU5FUkFUSU9OX0lE"
+set_global_assignment -entity "ip" -library "ip" -name IP_COMPONENT_PARAMETER "QVVUT19ERVZJQ0VfRkFNSUxZ::Q3ljbG9uZSBJViBF::QXV0byBERVZJQ0VfRkFNSUxZ"
+set_global_assignment -entity "ip" -library "ip" -name IP_COMPONENT_PARAMETER "QVVUT19ERVZJQ0U=::RVA0Q0UxMTVGMjlDNw==::QXV0byBERVZJQ0U="
+set_global_assignment -entity "ip" -library "ip" -name IP_COMPONENT_PARAMETER "QVVUT19ERVZJQ0VfU1BFRURHUkFERQ==::Nw==::QXV0byBERVZJQ0VfU1BFRURHUkFERQ=="
+set_global_assignment -entity "ip" -library "ip" -name IP_COMPONENT_PARAMETER "QVVUT19DTEtfQ0xPQ0tfUkFURQ==::LTE=::QXV0byBDTE9DS19SQVRF"
+set_global_assignment -entity "ip" -library "ip" -name IP_COMPONENT_PARAMETER "QVVUT19DTEtfQ0xPQ0tfRE9NQUlO::LTE=::QXV0byBDTE9DS19ET01BSU4="
+set_global_assignment -entity "ip" -library "ip" -name IP_COMPONENT_PARAMETER "QVVUT19DTEtfUkVTRVRfRE9NQUlO::LTE=::QXV0byBSRVNFVF9ET01BSU4="
+set_global_assignment -entity "ip_rs232_0" -library "ip" -name IP_COMPONENT_NAME "aXBfcnMyMzJfMA=="
+set_global_assignment -entity "ip_rs232_0" -library "ip" -name IP_COMPONENT_DISPLAY_NAME "UlMyMzIgVUFSVA=="
+set_global_assignment -entity "ip_rs232_0" -library "ip" -name IP_COMPONENT_REPORT_HIERARCHY "Off"
+set_global_assignment -entity "ip_rs232_0" -library "ip" -name IP_COMPONENT_INTERNAL "Off"
+set_global_assignment -entity "ip_rs232_0" -library "ip" -name IP_COMPONENT_AUTHOR "QWx0ZXJhIFVuaXZlcnNpdHkgUHJvZ3JhbQ=="
+set_global_assignment -entity "ip_rs232_0" -library "ip" -name IP_COMPONENT_VERSION "MTUuMQ=="
+set_global_assignment -entity "ip_rs232_0" -library "ip" -name IP_COMPONENT_DESCRIPTION "UlMyMzIgVUFSVCBDb250cm9sbGVy"
+set_global_assignment -entity "ip_rs232_0" -library "ip" -name IP_COMPONENT_PARAMETER "YXZhbG9uX2J1c190eXBl::TWVtb3J5IE1hcHBlZA==::QXZhbG9uIFR5cGU="
+set_global_assignment -entity "ip_rs232_0" -library "ip" -name IP_COMPONENT_PARAMETER "Y2xrX3JhdGU=::NTAwMDAwMDA=::SW5jb21pbmcgY2xvY2sgcmF0ZQ=="
+set_global_assignment -entity "ip_rs232_0" -library "ip" -name IP_COMPONENT_PARAMETER "YmF1ZA==::MTE1MjAw::QmF1ZCBSYXRlIChicHMp"
+set_global_assignment -entity "ip_rs232_0" -library "ip" -name IP_COMPONENT_PARAMETER "cGFyaXR5::Tm9uZQ==::UGFyaXR5"
+set_global_assignment -entity "ip_rs232_0" -library "ip" -name IP_COMPONENT_PARAMETER "ZGF0YV9iaXRz::OA==::RGF0YSBCaXRz"
+set_global_assignment -entity "ip_rs232_0" -library "ip" -name IP_COMPONENT_PARAMETER "c3RvcF9iaXRz::MQ==::U3RvcCBCaXRz"
+set_global_assignment -entity "ip_rs232_0" -library "ip" -name IP_COMPONENT_PARAMETER "QVVUT19ERVZJQ0VfRkFNSUxZ::Q3ljbG9uZSBJViBF::QXV0byBERVZJQ0VfRkFNSUxZ"
+set_global_assignment -entity "ip_rs232_0" -library "ip" -name IP_COMPONENT_PARAMETER "QVVUT19DTEtfQ0xPQ0tfUkFURQ==::MA==::QXV0byBDTE9DS19SQVRF"
+
+set_global_assignment -library "ip" -name VERILOG_FILE [file join $::quartus(qip_path) "ip.v"]
+set_global_assignment -library "ip" -name VERILOG_FILE [file join $::quartus(qip_path) "submodules/altera_up_rs232_counters.v"]
+set_global_assignment -library "ip" -name VERILOG_FILE [file join $::quartus(qip_path) "submodules/altera_up_rs232_in_deserializer.v"]
+set_global_assignment -library "ip" -name VERILOG_FILE [file join $::quartus(qip_path) "submodules/altera_up_rs232_out_serializer.v"]
+set_global_assignment -library "ip" -name VERILOG_FILE [file join $::quartus(qip_path) "submodules/altera_up_sync_fifo.v"]
+set_global_assignment -library "ip" -name VERILOG_FILE [file join $::quartus(qip_path) "submodules/ip_rs232_0.v"]

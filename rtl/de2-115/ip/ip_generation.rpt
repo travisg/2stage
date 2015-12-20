@@ -1,0 +1,29 @@
+Info: Starting: Create block symbol file (.bsf)
+Info: qsys-generate /home/geist/svn/2stage/rtl/de2-115/ip.qsys --block-symbol-file --output-directory=/home/geist/svn/2stage/rtl/de2-115/ip --family="Cyclone IV E" --part=EP4CE115F29C7
+Progress: Loading de2-115/ip.qsys
+Progress: Reading input file
+Progress: Adding rs232_0 [altera_up_avalon_rs232 15.1]
+Progress: Parameterizing module rs232_0
+Progress: Building connections
+Progress: Parameterizing connections
+Progress: Validating
+Progress: Done reading input file
+Info: qsys-generate succeeded.
+Info: Finished: Create block symbol file (.bsf)
+Info: 
+Info: Starting: Create HDL design files for synthesis
+Info: qsys-generate /home/geist/svn/2stage/rtl/de2-115/ip.qsys --synthesis=VERILOG --output-directory=/home/geist/svn/2stage/rtl/de2-115/ip/synthesis --family="Cyclone IV E" --part=EP4CE115F29C7
+Progress: Loading de2-115/ip.qsys
+Progress: Reading input file
+Progress: Adding rs232_0 [altera_up_avalon_rs232 15.1]
+Progress: Parameterizing module rs232_0
+Progress: Building connections
+Progress: Parameterizing connections
+Progress: Validating
+Progress: Done reading input file
+Info: ip: Generating ip "ip" for QUARTUS_SYNTH
+Info: rs232_0: Starting Generation of RS232 UART
+Info: rs232_0: "ip" instantiated altera_up_avalon_rs232 "rs232_0"
+Info: ip: Done "ip" with 2 modules, 6 files
+Info: qsys-generate succeeded.
+Info: Finished: Create HDL design files for synthesis

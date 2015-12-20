@@ -1,0 +1,149 @@
+/*
+WARNING: Do NOT edit the input and output ports in this file in a text
+editor if you plan to continue editing the block that represents it in
+the Block Editor! File corruption is VERY likely to occur.
+*/
+/*
+Copyright (C) 1991-2015 Altera Corporation. All rights reserved.
+Your use of Altera Corporation's design tools, logic functions 
+and other software and tools, and its AMPP partner logic 
+functions, and any output files from any of the foregoing 
+(including device programming or simulation files), and any 
+associated documentation or information are expressly subject 
+to the terms and conditions of the Altera Program License 
+Subscription Agreement, the Altera Quartus Prime License Agreement,
+the Altera MegaCore Function License Agreement, or other 
+applicable license agreement, including, without limitation, 
+that your use is for the sole purpose of programming logic 
+devices manufactured by Altera and sold by Altera or its 
+authorized distributors.  Please refer to the applicable 
+agreement for further details.
+*/
+(header "symbol" (version "1.1"))
+(symbol
+	(rect 0 0 336 336)
+	(text "ip" (rect 164 -1 169 11)(font "Arial" (font_size 10)))
+	(text "inst" (rect 8 320 20 332)(font "Arial" ))
+	(port
+		(pt 0 72)
+		(input)
+		(text "address" (rect 0 0 31 12)(font "Arial" (font_size 8)))
+		(text "address" (rect 4 61 46 72)(font "Arial" (font_size 8)))
+		(line (pt 0 72)(pt 128 72)(line_width 1))
+	)
+	(port
+		(pt 0 88)
+		(input)
+		(text "chipselect" (rect 0 0 37 12)(font "Arial" (font_size 8)))
+		(text "chipselect" (rect 4 77 64 88)(font "Arial" (font_size 8)))
+		(line (pt 0 88)(pt 128 88)(line_width 1))
+	)
+	(port
+		(pt 0 104)
+		(input)
+		(text "byteenable[3..0]" (rect 0 0 62 12)(font "Arial" (font_size 8)))
+		(text "byteenable[3..0]" (rect 4 93 100 104)(font "Arial" (font_size 8)))
+		(line (pt 0 104)(pt 128 104)(line_width 3))
+	)
+	(port
+		(pt 0 120)
+		(input)
+		(text "read" (rect 0 0 17 12)(font "Arial" (font_size 8)))
+		(text "read" (rect 4 109 28 120)(font "Arial" (font_size 8)))
+		(line (pt 0 120)(pt 128 120)(line_width 1))
+	)
+	(port
+		(pt 0 136)
+		(input)
+		(text "write" (rect 0 0 17 12)(font "Arial" (font_size 8)))
+		(text "write" (rect 4 125 34 136)(font "Arial" (font_size 8)))
+		(line (pt 0 136)(pt 128 136)(line_width 1))
+	)
+	(port
+		(pt 0 152)
+		(input)
+		(text "writedata[31..0]" (rect 0 0 57 12)(font "Arial" (font_size 8)))
+		(text "writedata[31..0]" (rect 4 141 100 152)(font "Arial" (font_size 8)))
+		(line (pt 0 152)(pt 128 152)(line_width 3))
+	)
+	(port
+		(pt 0 208)
+		(input)
+		(text "clk" (rect 0 0 10 12)(font "Arial" (font_size 8)))
+		(text "clk" (rect 4 197 22 208)(font "Arial" (font_size 8)))
+		(line (pt 0 208)(pt 128 208)(line_width 1))
+	)
+	(port
+		(pt 0 248)
+		(input)
+		(text "UART_RXD" (rect 0 0 56 12)(font "Arial" (font_size 8)))
+		(text "UART_RXD" (rect 4 237 52 248)(font "Arial" (font_size 8)))
+		(line (pt 0 248)(pt 128 248)(line_width 1))
+	)
+	(port
+		(pt 0 304)
+		(input)
+		(text "reset" (rect 0 0 20 12)(font "Arial" (font_size 8)))
+		(text "reset" (rect 4 293 34 304)(font "Arial" (font_size 8)))
+		(line (pt 0 304)(pt 128 304)(line_width 1))
+	)
+	(port
+		(pt 0 168)
+		(output)
+		(text "readdata[31..0]" (rect 0 0 57 12)(font "Arial" (font_size 8)))
+		(text "readdata[31..0]" (rect 4 157 94 168)(font "Arial" (font_size 8)))
+		(line (pt 0 168)(pt 128 168)(line_width 3))
+	)
+	(port
+		(pt 0 264)
+		(output)
+		(text "UART_TXD" (rect 0 0 54 12)(font "Arial" (font_size 8)))
+		(text "UART_TXD" (rect 4 253 52 264)(font "Arial" (font_size 8)))
+		(line (pt 0 264)(pt 128 264)(line_width 1))
+	)
+	(port
+		(pt 336 72)
+		(output)
+		(text "irq" (rect 0 0 9 12)(font "Arial" (font_size 8)))
+		(text "irq" (rect 322 61 340 72)(font "Arial" (font_size 8)))
+		(line (pt 336 72)(pt 208 72)(line_width 1))
+	)
+	(drawing
+		(text "avalon_rs232_slave" (rect 13 43 134 99)(font "Arial" (color 128 0 0)(font_size 9)))
+		(text "address" (rect 133 67 308 144)(font "Arial" (color 0 0 0)))
+		(text "chipselect" (rect 133 83 326 176)(font "Arial" (color 0 0 0)))
+		(text "byteenable" (rect 133 99 326 208)(font "Arial" (color 0 0 0)))
+		(text "read" (rect 133 115 290 240)(font "Arial" (color 0 0 0)))
+		(text "write" (rect 133 131 296 272)(font "Arial" (color 0 0 0)))
+		(text "writedata" (rect 133 147 320 304)(font "Arial" (color 0 0 0)))
+		(text "readdata" (rect 133 163 314 336)(font "Arial" (color 0 0 0)))
+		(text "clk" (rect 113 179 244 371)(font "Arial" (color 128 0 0)(font_size 9)))
+		(text "clk" (rect 133 203 284 416)(font "Arial" (color 0 0 0)))
+		(text "external_interface" (rect 24 219 156 451)(font "Arial" (color 128 0 0)(font_size 9)))
+		(text "RXD" (rect 133 243 284 496)(font "Arial" (color 0 0 0)))
+		(text "TXD" (rect 133 259 284 528)(font "Arial" (color 0 0 0)))
+		(text "interrupt" (rect 209 43 472 99)(font "Arial" (color 128 0 0)(font_size 9)))
+		(text "irq" (rect 194 67 406 144)(font "Arial" (color 0 0 0)))
+		(text "reset" (rect 99 275 228 563)(font "Arial" (color 128 0 0)(font_size 9)))
+		(text "reset" (rect 133 299 296 608)(font "Arial" (color 0 0 0)))
+		(text " ip " (rect 326 320 676 650)(font "Arial" ))
+		(line (pt 128 32)(pt 208 32)(line_width 1))
+		(line (pt 208 32)(pt 208 320)(line_width 1))
+		(line (pt 128 320)(pt 208 320)(line_width 1))
+		(line (pt 128 32)(pt 128 320)(line_width 1))
+		(line (pt 129 52)(pt 129 172)(line_width 1))
+		(line (pt 130 52)(pt 130 172)(line_width 1))
+		(line (pt 129 188)(pt 129 212)(line_width 1))
+		(line (pt 130 188)(pt 130 212)(line_width 1))
+		(line (pt 129 228)(pt 129 268)(line_width 1))
+		(line (pt 130 228)(pt 130 268)(line_width 1))
+		(line (pt 207 52)(pt 207 76)(line_width 1))
+		(line (pt 206 52)(pt 206 76)(line_width 1))
+		(line (pt 129 284)(pt 129 308)(line_width 1))
+		(line (pt 130 284)(pt 130 308)(line_width 1))
+		(line (pt 0 0)(pt 336 0)(line_width 1))
+		(line (pt 336 0)(pt 336 336)(line_width 1))
+		(line (pt 0 336)(pt 336 336)(line_width 1))
+		(line (pt 0 0)(pt 0 336)(line_width 1))
+	)
+)

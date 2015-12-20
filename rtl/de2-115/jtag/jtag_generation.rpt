@@ -1,0 +1,28 @@
+Info: Starting: Create block symbol file (.bsf)
+Info: qsys-generate /home/geist/svn/2stage/rtl/de2-115/jtag.qsys --block-symbol-file --output-directory=/home/geist/svn/2stage/rtl/de2-115/jtag --family="Cyclone IV E" --part=EP4CE115F29C7
+Progress: Loading de2-115/jtag.qsys
+Progress: Reading input file
+Progress: Adding virtual_jtag_0 [altera_virtual_jtag 15.1]
+Progress: Parameterizing module virtual_jtag_0
+Progress: Building connections
+Progress: Parameterizing connections
+Progress: Validating
+Progress: Done reading input file
+Info: qsys-generate succeeded.
+Info: Finished: Create block symbol file (.bsf)
+Info: 
+Info: Starting: Create HDL design files for synthesis
+Info: qsys-generate /home/geist/svn/2stage/rtl/de2-115/jtag.qsys --synthesis=VERILOG --output-directory=/home/geist/svn/2stage/rtl/de2-115/jtag/synthesis --family="Cyclone IV E" --part=EP4CE115F29C7
+Progress: Loading de2-115/jtag.qsys
+Progress: Reading input file
+Progress: Adding virtual_jtag_0 [altera_virtual_jtag 15.1]
+Progress: Parameterizing module virtual_jtag_0
+Progress: Building connections
+Progress: Parameterizing connections
+Progress: Validating
+Progress: Done reading input file
+Info: jtag: Generating jtag "jtag" for QUARTUS_SYNTH
+Info: virtual_jtag_0: "jtag" instantiated altera_virtual_jtag "virtual_jtag_0"
+Info: jtag: Done "jtag" with 2 modules, 1 files
+Info: qsys-generate succeeded.
+Info: Finished: Create HDL design files for synthesis
