@@ -15,7 +15,8 @@ loop:
     bl      outchar
     b       loop
 
-#   args: r1 character
+// args: r1 character
+// trashes: r5, r6
 outchar:
     mov     r6, 0xf000
 wait_fifo:

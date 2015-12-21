@@ -1,4 +1,5 @@
 import array
+import struct
 
 # general class of instruction
 ITYPE_ALU = 1
@@ -87,11 +88,15 @@ class Instruction(OutputData):
     op = 0
     op2 = 0
 
-    def hex_string(self):
-        string = "%04x // 0x%04x %s\n" % (self.op, self.addr, self.string)
+    def write_hex(self, outfile):
+        outfile.write("%04x // 0x%04x %s\n" % (self.op, self.addr, self.string))
         if self.length == 2:
-            string += "%04x\n"  % (self.op2)
-        return string
+            outfile.write("%04x\n"  % (self.op2))
+
+    def write_bin(self, outfile):
+        outfile.write(struct.pack('>H', self.op))
+        if self.length == 2:
+            outfile.write(struct.pack('>H', self.op2))
 
     def __str__(self):
         return "Instruction op 0x%004x 0x%04x, address 0x%04x '%s' fixup type %d sym: %s" % (
@@ -100,14 +105,19 @@ class Instruction(OutputData):
 class Data(OutputData):
     data = None
 
-    def hex_string(self):
-        string = ""
+    def __init__(self):
+        self.data = array.array('H')
+
+    def write_hex(self, outfile):
         for i in range(self.length):
             if i == 0:
-                string +="%04x // %s\n" % (self.data[i], self.string)
+                outfile.write("%04x // 0x%04x %s\n" % (self.data[i], self.addr, self.string))
             else:
-                string +="%04x\n" % self.data[i]
-        return string
+                outfile.write("%04x\n" % self.data[i])
+
+    def write_bin(self, outfile):
+        for i in range(self.length):
+            outfile.write(struct.pack('>H', self.data[i]))
 
     def __str__(self):
         return "Data '%s', address 0x%04x '%s' fixup type %d sym: %s" % (
@@ -207,7 +217,6 @@ class Codegen:
             d = Data()
             d.addr = self.cur_addr
             d.length = 1
-            d.data = array.array('H')
             if ins[1][0] == 'NUMBER':
                 num = int(ins[1][1])
                 d.string = ".word %04x" % num
@@ -226,7 +235,6 @@ class Codegen:
             d = Data()
             d.string = "%s '%s'" % (ins[0], ins[1])
             d.addr = self.cur_addr
-            d.data = array.array('H')
 
             for c in ins[1]:
                 d.data.append(ord(c))
@@ -250,7 +258,6 @@ class Codegen:
 
             d = Data()
             d.addr = self.cur_addr
-            d.data = array.array('H')
             d.data.fromstring(s)
             d.string = "%s '%s'" % (ins[0], ins[1])
             d.length = len(d.data)
@@ -537,18 +544,19 @@ class Codegen:
                 ins.data.append(sym.addr)
 
     def dump_output(self):
-        for ins in self.output:
-            print ins
+        for out in self.output:
+            print out
+
     def dump_symbols(self):
         for sym in self.symbols:
             print self.symbols[sym]
 
     def output_hex(self, hexfile):
         for out in self.output:
-            hexfile.write(out.hex_string())
+            out.write_hex(hexfile)
 
     def output_binary(self, binfile):
-        print "output_binary: UNIMPLEMENTED!"
-        pass
+        for out in self.output:
+            out.write_bin(binfile)
 
 # vim: ts=4 sw=4 expandtab:

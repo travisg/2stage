@@ -43,3 +43,11 @@ count_loop:
 func:
     mov r5, lr
     b lr
+
+data:
+    .word 0x99
+data2:
+    .word data
+
+text:
+    .asciiz "what the hell"
