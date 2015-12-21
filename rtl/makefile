@@ -24,10 +24,11 @@ $(SIMULATOR): $(SIM_SRC) $(SRC) sim.cpp
 	verilator -Wno-fatal --top-module sim --Mdir $(dir $@) -Icpu --exe sim.cpp --cc -CFLAGS "-DSIMULATION -DTRACE=0" --trace $(SIM_SRC) $(SRC)
 	make -C $(dir $@) -f Vsim.mk
 
-test.hex: test.asm
-	../asm/asm.py -x $@ < test.asm
+test.hex:
+	make -C ../src
+	ln -sf ../src/test.hex
 
-.PHONY: vcd wave
+.PHONY: vcd wave test.hex
 
 vcd: $(TESTBENCH)
 	cd $(BUILD); \
