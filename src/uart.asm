@@ -1,3 +1,4 @@
+// writes 'hello' to the uart in a loop
 start:
     mov     r1, 0xd
     bl      outchar

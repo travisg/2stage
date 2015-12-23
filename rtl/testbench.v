@@ -28,11 +28,14 @@ module testbench(
 
 int count = 0;
 reg rst = 1;
+reg halt = 0;
 
 always_ff @(posedge clk) begin
-    count = count + 1;
+    count <= count + 1;
 
-    if (count == 3) rst = 0;
+    if (count == 3) rst <= 0;
+
+    halt <= ((count % 5) == 0) ? 1 : 0;
 
     if (count == 100) $finish;
 end
@@ -46,6 +49,7 @@ wire we;
 cpu cpu0(
     .clk(clk),
     .rst(rst),
+    .halt(halt),
 
     .addr(addr),
     .rdata(rdata),

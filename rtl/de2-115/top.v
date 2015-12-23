@@ -260,12 +260,16 @@ wire in_clk = CLOCK_50;
 
 logic clk;
 logic rst;
+logic halt;
+
+logic jtag_halt;
 
 reg [24:0] counter = 0;
 
 always_ff @(posedge in_clk) begin
     counter <= counter + 1;
     rst <= ~KEY[0];
+    halt <= jtag_halt;
 end
 
 assign clk = SW[0] ? counter[24] : in_clk;
@@ -273,6 +277,7 @@ assign clk = SW[0] ? counter[24] : in_clk;
 cpu cpu0(
     .clk(clk),
     .rst(rst),
+    .halt(halt),
 
     .addr(cpu_addr),
     .re(cpu_re),
@@ -352,6 +357,7 @@ always_comb begin
     end else begin
         io_re = cpu_re;
         io_we = cpu_we;
+        // the altera uart is 32bits wide, so only select half a lane at a time
         io_byteenable = cpu_addr[0] ? 4'b1100 : 4'b0011;
         device_read_sel_next = IO;
         io_wdata = { cpu_wdata, cpu_wdata };
@@ -373,8 +379,56 @@ always_ff @(posedge clk) begin
     device_read_sel <= device_read_sel_next;
 end
 
+// jtag stuff
+wire tck, tdi;
+reg  tdo;
+wire cdr, sdr, e1dr, e2dr, pdr, udr, cir, uir;
+wire [1:0] ir_in;
+
+jtag jtag0(
+        .tck(tck),
+        .tdi(tdi),
+        .tdo(tdo),
+        .ir_in(ir_in),
+        .ir_out(ir_out),
+        .virtual_state_cdr(cdr),
+        .virtual_state_sdr(sdr),
+        .virtual_state_e1dr(e1dr),
+        .virtual_state_pdr(pdr),
+        .virtual_state_e2dr(e2dr),
+        .virtual_state_udr(udr),
+        .virtual_state_cir(cir),
+        .virtual_state_uir(uir)
+);
+
+reg [16:0] ctrl_reg;
+reg [16:0] data_reg;
+wire ctrl = (ir_in == 2'd0);
+wire load = (ir_in == 2'd1);
+wire read = (ir_in == 2'd2);
+
+assign jtag_halt = ctrl_reg[0];
+
+always_ff @(posedge tck) begin
+    if (sdr)
+        data_reg <= { tdi, data_reg[15:1] };
+    if (udr && ctrl) begin
+        ctrl_reg <= data_reg;
+    end
+end
+
+always_comb begin
+    if (read || load)
+        tdo = data_reg[0];
+    else
+        tdo = tdi;
+end
+
 assign LEDR = { cpu_we, cpu_re, cpu_addr };
-assign LEDG = 0;
+//assign LEDG[0] = ir_in[0];
+//assign LEDG[1] = ir_in[1];
+assign LEDG[0] = ctrl_reg[0];
+//assign LEDG[7:0] = data_reg;
 
 seven_segment s0(cpu_rdata[3:0], HEX0);
 seven_segment s1(cpu_rdata[7:4], HEX1);

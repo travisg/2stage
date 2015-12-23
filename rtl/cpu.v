@@ -26,6 +26,7 @@
 module cpu(
     input clk,
     input rst,
+    input halt,
 
     output [IADDRWIDTH-1:0] addr,
     input  [DWIDTH-1:0] rdata,
@@ -49,7 +50,7 @@ assign addr = (load_active || store_active) ? load_store_address :
                 ifetch_active ? ifetch_address : 16'dX;
 wire ifetch_bus_cycle = ifetch_active && !(load_active || store_active);
 
-assign re = ifetch_active || load_active;
+assign re = (ifetch_active || load_active) && !store_active;
 assign we = store_active;
 
 /* first stage (instruction fetch) */
@@ -67,7 +68,7 @@ always_comb begin
     if (rst) begin
         pc_next = 16'hffff;
         ifetch_active = 0;
-    end else if (s2_to_s1_stall) begin
+    end else if (s2_to_s1_stall || halt) begin
         pc_next = pc;
         ifetch_active = 1;
     end else begin
@@ -478,7 +479,7 @@ always_ff @(posedge clk) begin
         reg_cc <= 0;
         reg_lr <= 0;
         reg_sp <= 0;
-    end else begin
+    end else if (!halt) begin
         // fetch the next instruction from stage 1
         if (state_next == DECODE) begin
             if (s1_ifetch_valid) begin
