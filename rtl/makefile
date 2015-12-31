@@ -1,6 +1,6 @@
 BUILD := build
-TESTBENCH := $(BUILD)/testbench
-SIMULATOR := $(BUILD)/sim
+TESTBENCH := $(BUILD)/Vtestbench
+SIMULATOR := $(BUILD)/Vsim
 
 SRC := \
 	cpu.v \
@@ -14,7 +14,7 @@ EXTRADEPS := test.hex
 
 all: $(TESTBENCH) $(SIMULATOR)
 
-$(TESTBENCH): $(TEST_SRC) $(SRC) testbench.cpp test.hex
+$(TESTBENCH): $(TEST_SRC) $(SRC) testbench.cpp
 	mkdir -p $(dir $@)
 	verilator -Wno-fatal --top-module testbench --Mdir $(dir $@) -Icpu --exe testbench.cpp --cc -CFLAGS "-DTRACE=1" --trace $(TEST_SRC) $(SRC)
 	make -C $(dir $@) -f Vtestbench.mk
@@ -28,7 +28,10 @@ test.hex:
 	make -C ../src
 	ln -sf ../src/test.hex
 
-.PHONY: vcd wave test.hex
+.PHONY: vcd wave sim test.hex
+
+sim: $(SIMULATOR) test.hex
+	./$(SIMULATOR) -im test.hex
 
 vcd: $(TESTBENCH)
 	cd $(BUILD); \

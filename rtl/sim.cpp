@@ -23,15 +23,15 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <getopt.h>
 
 #include "Vsim.h"
 #include "Vsim__Dpi.h"
 #include "verilated.h"
 #include <verilated_vcd_c.h>
 
-#define MEMTRACE 0
-
 static uint16_t memory[65536];
+static bool memtrace = false;
 
 static uint64_t now = 0;
 
@@ -39,58 +39,80 @@ void dpi_mem_write(int i, int addr, int data)
 {
     memory[addr] = data;
 
-#if MEMTRACE
-    printf("%lu W %d: addr 0x%04x, data 0x%04x\n", now, i, addr, data);
-#endif
+    if (memtrace)
+        printf("%lu W %d: addr 0x%04x, data 0x%04x\n", now, i, addr, data);
 }
 
 void dpi_mem_read(int i, int addr, int *data)
 {
     *data = memory[addr];
 
-#if MEMTRACE
-    printf("%lu R %d: addr 0x%04x, data 0x%04x\n", now, i, addr, *data);
-#endif
+    if (memtrace)
+        printf("%lu R %d: addr 0x%04x, data 0x%04x\n", now, i, addr, *data);
 }
 
-int main(int argc, char **argv) {
+void usage(int argc, char **argv)
+{
+    fprintf(stderr, "usage: %s [options]\n", argv[0]);
+    fprintf(stderr, "options:\n");
+    fprintf(stderr, "\t-h,--help: this help\n");
+    fprintf(stderr, "\t-c,--cycles <cycles>:   number of cycles to run before stopping\n");
+    fprintf(stderr, "\t-i,--input <hex file>:  input memory image\n");
+    fprintf(stderr, "\t-o,--output <hex file>: output memory image\n");
+    fprintf(stderr, "\t-m,--memtrace:          trace memory accesses\n");
+    fprintf(stderr, "\t-n,--notrace:           do not output trace file\n");
+    fprintf(stderr, "\t-v,--vcd <file>:        output trace file, default is sim_trace.vcd\n");
+    exit(1);
+}
+
+int main(int argc, char **argv)
+{
     const char *vcdname = "sim_trace.vcd";
     const char *memname = NULL;
     const char *omemname = NULL;
+    uint64_t cycles = 0;
+    bool trace = true;
+    const struct option long_options[] = {
+        {"help",   0,  0,  'h'},
+        {"cycles",   1,  0,  'c'},
+        {"input",   1,  0,  'i'},
+        {"output",   1,  0,  'o'},
+        {"memtrace",   0,  0,  'm'},
+        {"notrace",   0,  0,  'n'},
+        {"vcd",   1,  0,  'v'},
+    };
 
-    while (argc > 1) {
-        if (!strcmp(argv[1], "-o")) {
-#if TRACE
-            if (argc < 2) {
-                fprintf(stderr,"error: -o requires argument\n");
-                return -1;
-            }
-            vcdname = argv[2];
-            argv += 2;
-            argc -= 2;
-            continue;
-#else
-            fprintf(stderr,"error: no trace support\n");
-            return -1;
-#endif
-        } else if (!strcmp(argv[1], "-im")) {
-            if (argc < 2) {
-                fprintf(stderr, "error: -om requires argument\n");
-                return -1;
-            }
-            memname = argv[2];
-            argv += 2;
-            argc -= 3;
-        } else if (!strcmp(argv[1], "-om")) {
-            if (argc < 2) {
-                fprintf(stderr, "error: -om requires argument\n");
-                return -1;
-            }
-            omemname = argv[2];
-            argv += 2;
-            argc -= 3;
-        } else {
+    for (;;) {
+        int option_index = 0;
+        int c;
+
+        c = getopt_long(argc, argv, "hc:i:mno:v:", long_options, &option_index);
+        if (c == -1)
             break;
+
+        switch (c) {
+            case 'c':
+                cycles = atoll(optarg);
+                break;
+            case 'i':
+                memname = optarg;
+                break;
+            case 'o':
+                omemname = optarg;
+                break;
+            case 'm':
+                memtrace = true;
+                break;
+            case 'n':
+                trace = false;
+                break;
+            case 'v':
+                vcdname = optarg;
+                break;
+            case 'h':
+            default:
+                usage(argc, argv);
+                break;
         }
     }
 
@@ -124,13 +146,15 @@ int main(int argc, char **argv) {
     Vsim *sim = new Vsim;
     sim->rst = 1;
     sim->clk = 0;
+    sim->halt = 0;
 
-#if TRACE
-    Verilated::traceEverOn(true);
-    VerilatedVcdC* tfp = new VerilatedVcdC;
-    sim->trace(tfp, 99);
-    tfp->open(vcdname);
-#endif
+    VerilatedVcdC* tfp = 0;
+    if (trace) {
+        Verilated::traceEverOn(true);
+        tfp = new VerilatedVcdC;
+        sim->trace(tfp, 99);
+        tfp->open(vcdname);
+    }
 
     while (!Verilated::gotFinish()) {
         sim->clk = !sim->clk;
@@ -140,16 +164,17 @@ int main(int argc, char **argv) {
         if (now > 20)
             sim->rst = 0;
 
-#if TRACE
-        tfp->dump(now);
-#endif
+        if (trace)
+            tfp->dump(now);
 
-        if (now > 10000000 * 10)
-            break;
+        if (sim->clk == 0 && cycles > 0) {
+            if (--cycles == 0)
+                break;
+        }
     }
-#if TRACE
-    tfp->close();
-#endif
+    if (trace)
+        tfp->close();
+
     sim->final();
     delete sim;
 

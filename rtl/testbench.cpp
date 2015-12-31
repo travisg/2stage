@@ -17,26 +17,17 @@
  * - expects the top module to be testbench(clk);
  * - provides clk to module
  * - handles vcd tracing if compiled with TRACE
- * - allows tracefilename to be specified via -o
+ * - allows tracefilename to be specified via -v
 */
 
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <getopt.h>
 
 #include "Vtestbench.h"
 #include "verilated.h"
 #include <verilated_vcd_c.h>
-
-static unsigned memory[4096];
-
-void dpi_mem_write(int addr, int data) {
-    memory[addr & 0xFFF] = data;
-}
-
-void dpi_mem_read(int addr, int *data) {
-    *data = (int) memory[addr & 0xFFF];
-}
 
 #ifdef TRACE
 static vluint64_t now = 0;
@@ -46,36 +37,52 @@ double sc_time_stamp() {
 }
 #endif
 
+void usage(int argc, char **argv)
+{
+    fprintf(stderr, "usage: %s [options]\n", argv[0]);
+    fprintf(stderr, "options:\n");
+    fprintf(stderr, "\t-h,--help: this help\n");
+    fprintf(stderr, "\t-c,--cycles <cycles>:   number of cycles to run before stopping\n");
+    fprintf(stderr, "\t-n,--notrace:           do not output trace file\n");
+    fprintf(stderr, "\t-v,--vcd <file>:        output trace file, default is trace.vcd\n");
+    exit(1);
+}
+
 int main(int argc, char **argv) {
     const char *vcdname = "trace.vcd";
-    const char *memname = NULL;
+    uint64_t cycles = 0;
+    bool trace = true;
     int fd;
 
-    while (argc > 1) {
-        if (!strcmp(argv[1], "-o")) {
-#ifdef TRACE
-            if (argc < 3) {
-                fprintf(stderr,"error: -o requires argument\n");
-                return -1;
-            }
-            vcdname = argv[2];
-            argv += 2;
-            argc -= 2;
-            continue;
-#else
-            fprintf(stderr,"error: no trace support\n");
-            return -1;
-#endif
-        } else if (!strcmp(argv[1], "-om")) {
-            if (argc < 3) {
-                fprintf(stderr, "error: -om requires argument\n");
-                return -1;
-            }
-            memname = argv[2];
-            argv += 2;
-            argc -= 3;
-        } else {
+    const struct option long_options[] = {
+        {"help",   0,  0,  'h'},
+        {"cycles",   1,  0,  'c'},
+        {"notrace",   0,  0,  'n'},
+        {"vcd",   1,  0,  'v'},
+    };
+
+    for (;;) {
+        int option_index = 0;
+        int c;
+
+        c = getopt_long(argc, argv, "hc:nv:", long_options, &option_index);
+        if (c == -1)
             break;
+
+        switch (c) {
+            case 'c':
+                cycles = atoll(optarg);
+                break;
+            case 'n':
+                trace = false;
+                break;
+            case 'v':
+                vcdname = optarg;
+                break;
+            case 'h':
+            default:
+                usage(argc, argv);
+                break;
         }
     }
 
@@ -86,36 +93,31 @@ int main(int argc, char **argv) {
     Vtestbench *testbench = new Vtestbench;
     testbench->clk = 0;
 
-#ifdef TRACE
-    Verilated::traceEverOn(true);
-    VerilatedVcdC* tfp = new VerilatedVcdC;
-    testbench->trace(tfp, 99);
-    tfp->open(vcdname);
-#endif
+    VerilatedVcdC* tfp = 0;
+    if (trace) {
+        Verilated::traceEverOn(true);
+        tfp = new VerilatedVcdC;
+        testbench->trace(tfp, 99);
+        tfp->open(vcdname);
+    }
 
     while (!Verilated::gotFinish()) {
         testbench->clk = !testbench->clk;
         testbench->eval();
-#ifdef TRACE
-        tfp->dump(now);
         now += 5;
-#endif
+        if (tfp) {
+            tfp->dump(now);
+        }
+        if (testbench->clk == 0 && cycles > 0) {
+            if (--cycles == 0)
+                break;
+        }
     }
-#ifdef TRACE
-    tfp->close();
-#endif
+    if (tfp)
+        tfp->close();
     testbench->final();
     delete testbench;
 
-    if (memname != NULL) {
-        fd = open(memname, O_WRONLY | O_CREAT | O_TRUNC, 0640);
-        if (fd < 0) {
-            fprintf(stderr, "cannot open '%s' for writing\n", memname);
-            return -1;
-        }
-        write(fd, memory, sizeof(memory));
-        close(fd);
-    }
     return 0;
 }
 

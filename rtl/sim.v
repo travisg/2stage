@@ -24,7 +24,8 @@
 
 module sim(
     input clk,
-    input rst
+    input rst,
+    input halt
 );
 
 wire [15:0] addr;
@@ -36,6 +37,7 @@ wire we;
 cpu cpu0(
     .clk(clk),
     .rst(rst),
+    .halt(halt),
 
     .addr(addr),
     .rdata(rdata),
