@@ -41,6 +41,8 @@ parameter INSTANCE = 0;
 import "DPI-C" function void dpi_mem_write(input integer i, input integer addr, input integer data);
 import "DPI-C" function void dpi_mem_read(input integer i, input integer addr, output integer data);
 
+reg [AWIDTH-1:0] raddr_reg;
+
 /* zero out or register the read */
 always_ff @(posedge clk) begin
     if (we) begin
@@ -48,10 +50,13 @@ always_ff @(posedge clk) begin
     end
 
     if (re) begin
-        dpi_mem_read(INSTANCE, { 16'b0, raddr }, { 16'b0, rdata });
+        /* do the instantaneous dpi read into a temporary and register that to allow
+         * the simulator to step through all registers before committing the result
+         */
+        integer temp;
+        dpi_mem_read(INSTANCE, { 16'b0, raddr }, temp);
+        rdata <= temp[AWIDTH-1:0];
     end
 end
-
-
 
 endmodule
