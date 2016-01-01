@@ -37,7 +37,7 @@ always_ff @(posedge clk) begin
 
     halt <= ((count % 5) == 0) ? 1 : 0;
 
-    if (count == 100) $finish;
+    if (count == 500) $finish;
 end
 
 wire [15:0] addr;

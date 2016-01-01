@@ -61,6 +61,7 @@ void usage(int argc, char **argv)
     fprintf(stderr, "\t-o,--output <hex file>: output memory image\n");
     fprintf(stderr, "\t-m,--memtrace:          trace memory accesses\n");
     fprintf(stderr, "\t-n,--notrace:           do not output trace file\n");
+    fprintf(stderr, "\t-t,--trace:             trace the cpu\n");
     fprintf(stderr, "\t-v,--vcd <file>:        output trace file, default is sim_trace.vcd\n");
     exit(1);
 }
@@ -72,6 +73,7 @@ int main(int argc, char **argv)
     const char *omemname = NULL;
     uint64_t cycles = 0;
     bool trace = true;
+    bool cputrace = false;
     const struct option long_options[] = {
         {"help",   0,  0,  'h'},
         {"cycles",   1,  0,  'c'},
@@ -79,6 +81,7 @@ int main(int argc, char **argv)
         {"output",   1,  0,  'o'},
         {"memtrace",   0,  0,  'm'},
         {"notrace",   0,  0,  'n'},
+        {"trace",   0,  0,  't'},
         {"vcd",   1,  0,  'v'},
     };
 
@@ -86,7 +89,7 @@ int main(int argc, char **argv)
         int option_index = 0;
         int c;
 
-        c = getopt_long(argc, argv, "hc:i:mno:v:", long_options, &option_index);
+        c = getopt_long(argc, argv, "hc:i:mno:tv:", long_options, &option_index);
         if (c == -1)
             break;
 
@@ -105,6 +108,9 @@ int main(int argc, char **argv)
                 break;
             case 'n':
                 trace = false;
+                break;
+            case 't':
+                cputrace = true;
                 break;
             case 'v':
                 vcdname = optarg;
@@ -158,14 +164,27 @@ int main(int argc, char **argv)
 
     while (!Verilated::gotFinish()) {
         sim->clk = !sim->clk;
-        sim->eval();
         now += 5;
 
-        if (now > 20)
+        if (now > 30)
             sim->rst = 0;
+
+        sim->eval();
 
         if (trace)
             tfp->dump(now);
+
+        if (cputrace && sim->clk) {
+            printf("cycle %lu: ", now / 10);
+            printf("PC 0x%04hx ", sim->v__DOT__cpu0__DOT__pc - 2);
+            printf("ir 0x%04hx ", sim->v__DOT__cpu0__DOT__ir);
+            for (int i = 0; i < 8; i++)
+                printf("r%u 0x%04hx ", i, sim->v__DOT__cpu0__DOT__regs__DOT__r[i]);
+            printf("lr 0x%04hx ", sim->v__DOT__cpu0__DOT__reg_lr);
+            printf("sp 0x%04hx ", sim->v__DOT__cpu0__DOT__reg_sp);
+            printf("cc 0x%04hx ", sim->v__DOT__cpu0__DOT__reg_cc);
+            printf("\n");
+        }
 
         if (sim->clk == 0 && cycles > 0) {
             if (--cycles == 0)

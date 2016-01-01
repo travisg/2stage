@@ -31,7 +31,7 @@ test.hex:
 .PHONY: vcd wave sim test.hex
 
 sim: $(SIMULATOR) test.hex
-	./$(SIMULATOR) -im test.hex
+	./$(SIMULATOR) -i test.hex -c 500 -t -o test.bin
 
 vcd: $(TESTBENCH)
 	cd $(BUILD); \
