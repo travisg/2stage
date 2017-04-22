@@ -102,8 +102,8 @@ always_comb begin
 end
 
 initial begin
-    //$readmemh("../test.hex", imem.mem);
-    $readmemh("../test.hex", mem.mem);
+    //$readmemh("test.hex", imem.mem);
+    $readmemh("test.hex", mem.mem);
 end
 
 endmodule

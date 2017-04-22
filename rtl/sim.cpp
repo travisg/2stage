@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-/* reusable verilator testbench driver
- * - expects the top module to be testbench(clk);
+/* reusable verilator sim driver
+ * - expects the top module to be sim(clk);
  * - provides clk to module
  * - handles vcd tracing if compiled with TRACE
  * - allows tracefilename to be specified via -o
