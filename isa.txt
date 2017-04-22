@@ -41,8 +41,8 @@ alu ops:
 OOOOO DDD AAA bbbbb
 
     b addressing mode:
-              0XXXX - immediate (4 bit signed (except for shifts))
-              10BBB - register direct
+              0XXXX - immediate (4 bit signed, except for shifts which use unsigned)
+              10BBB - register
               11ida - special switches that affect a and d and b
                 i bit:
                     b is stored in next word (otherwise b is immediate 0)
@@ -57,7 +57,7 @@ load/store ops:
     ldr/str reg, [reg + reg]
     ldr/str reg, [reg + imm]
 
-push/pull ops:
+push/pop ops:
 11111 10000000000
 54321 09876543210
 -----------------
@@ -74,7 +74,7 @@ branch ops:
 54 3210 9876543210
 ------------------
     short conditional branch:
-10 CCCC oooooooooo  - b  - conditional branch (unconditional is 1111)
+10 CCCC oooooooooo  - b  - conditional branch (unconditional is 1110)
 
          10 bit signed offset (-512/511)
 
@@ -116,5 +116,5 @@ conditions (ARM style):
 1011 lt          Signed less than.                                           N!=V
 1100 gt          Signed greater than.                                        (Z==0) && (N==V)
 1101 le          Signed less than or equal.                                  (Z==1) || (N!=V)
-1110 al (or omitted) Always executed.
-1111 nv          never                                                       (use to signal long form)
+1110 al          Always executed.
+1111 nv          never                                                       (use to signal long form branch)
