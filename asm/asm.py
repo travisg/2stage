@@ -13,6 +13,7 @@ def main():
     parser.add_argument('infile', nargs='?', type=argparse.FileType('r'), default=sys.stdin, help="input file")
     parser.add_argument('-o','--out', nargs=1, type=argparse.FileType('w', 0), help="output binary")
     parser.add_argument('-x','--hex', nargs=1, type=argparse.FileType('w', 0), help="output hex file")
+    parser.add_argument('-X','--hex2', nargs=1, type=argparse.FileType('w', 0), help="output hex file, alternate format")
     parser.add_argument('-v','--verbose', action='store_true', default=False)
 
     args = parser.parse_args()
@@ -45,6 +46,11 @@ def main():
         if args.verbose: print "outputting hex file"
         code.output_hex(args.hex[0])
         args.hex[0].close()
+
+    if args.hex2 != None:
+        if args.verbose: print "outputting hex file, alternate format"
+        code.output_hex2(args.hex2[0])
+        args.hex2[0].close()
 
     if args.out != None:
         if args.verbose: print "outputting binary"

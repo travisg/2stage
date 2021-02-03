@@ -93,6 +93,11 @@ class Instruction(OutputData):
         if self.length == 2:
             outfile.write("%04x\n"  % (self.op2))
 
+    def write_hex2(self, outfile):
+        outfile.write("0x%04x, // 0x%04x %s\n" % (self.op, self.addr, self.string))
+        if self.length == 2:
+            outfile.write("0x%04x,\n"  % (self.op2))
+
     def write_bin(self, outfile):
         outfile.write(struct.pack('>H', self.op))
         if self.length == 2:
@@ -114,6 +119,13 @@ class Data(OutputData):
                 outfile.write("%04x // 0x%04x %s\n" % (self.data[i], self.addr, self.string))
             else:
                 outfile.write("%04x\n" % self.data[i])
+
+    def write_hex2(self, outfile):
+        for i in range(self.length):
+            if i == 0:
+                outfile.write("0x%04x, // 0x%04x %s\n" % (self.data[i], self.addr, self.string))
+            else:
+                outfile.write("0x%04x,\n" % self.data[i])
 
     def write_bin(self, outfile):
         for i in range(self.length):
@@ -554,6 +566,10 @@ class Codegen:
     def output_hex(self, hexfile):
         for out in self.output:
             out.write_hex(hexfile)
+
+    def output_hex2(self, hexfile):
+        for out in self.output:
+            out.write_hex2(hexfile)
 
     def output_binary(self, binfile):
         for out in self.output:
