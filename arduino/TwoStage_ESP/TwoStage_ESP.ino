@@ -9,6 +9,7 @@
 // https://github.com/travisg/2stage
 //
 // Uses LED display library
+#define USE_LOCAL_FONT 0
 #include <MD_MAX72xx.h>
 #include <SPI.h>
 
