@@ -8,18 +8,16 @@
 // Program to emulate the 16 bit "two stage" computer ISA
 // https://github.com/travisg/2stage
 //
-// Uses LED display library
-#define USE_LOCAL_FONT 0
-#include <MD_MAX72xx.h>
-#include <SPI.h>
 
 // Built for NoceMCU 1.0 ESP8266
 // https://arduino.esp8266.com/stable/package_esp8266com_index.json
 
 // Uses MD_MAX72xx library
+#define USE_LOCAL_FONT 0
+#include <MD_MAX72xx.h>
 
 // Turn on debug statements to the serial output
-#define  DEBUG  1
+#define DEBUG  1
 
 #if  DEBUG
 #define PRINT(s, x) { Serial.print(F(s)); Serial.print(x); }
@@ -48,10 +46,6 @@ MD_MAX72XX mx = MD_MAX72XX(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 // Arbitrary pins
 //MD_MAX72XX mx = MD_MAX72XX(HARDWARE_TYPE, DATA_PIN, CLK_PIN, CS_PIN, MAX_DEVICES);
 
-
- #include <stdio.h>
- #include <stdlib.h>
- #include <string.h>
 /* Global constants */
 #define NUM_REGISTERS  16
 #define REGISTER_SIZE 16
@@ -120,7 +114,6 @@ MD_MAX72XX mx = MD_MAX72XX(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 #define SIGN_EXTEND(val, topbit) (ASR_SIMPLE(LSL(val, 16-(topbit)), 16-(topbit)))
 
 /*  Global Variables  - For speed */
-
 uint16_t Memory[MEMORY_SIZE];
 
 // Prototype class definitions
@@ -132,9 +125,9 @@ class Console;
 //********************************************************************
 class CPU
 {
-
   public:
-    CPU();  // Constructor
+    CPU() = default;  // Constructor
+
     int Step(); // Step the CPU single instruction step
     int Run(bool slow_display); // Run the CPU
     int Boot(); // Load memory from code here
@@ -146,22 +139,14 @@ class CPU
 
   private:
     int Execute(); // Execute an instruction
+
     uint16_t do_add(uint16_t a, uint16_t b, int carry_in, bool cr_writeback);
+    void set_NZ(uint16_t alu_result);
 
-    uint16_t Regs[NUM_REGISTERS]; 
-    uint16_t Regs_displayed[NUM_REGISTERS];   // what we last sent to the LED array
-    unsigned long last_time;                 // time of last clock reading
+    uint16_t Regs[NUM_REGISTERS] = {}; 
+    uint16_t Regs_displayed[NUM_REGISTERS] {};   // what we last sent to the LED array
+    unsigned long last_time = millis();       // time of last clock reading
 };  
-
-// CPU constructor  - set up object and clear memory and registers
-CPU::CPU(void) {
-//  Serial.println(" CPU object created \n");
-  last_time = millis();     // store clock reading for display update timer
-  for (int i = 0; i<NUM_REGISTERS; i++){  //Clear the registers
-    Regs[i] = 0;
-    Regs_displayed[i] = 0;
-  }
-};
 
 // CPU method to obtain register value (no value checking, do externally)
 inline uint16_t CPU::Get_reg(int register_number) {
@@ -194,8 +179,8 @@ void CPU::Show_reg(int register_number) {
   // compute the begining row and column number based on the register number
   if (register_number < 8) {
     beg_row = 7 - register_number;
-    beg_col = 0;}
-  else {
+    beg_col = 0;
+  } else {
     beg_row = 7 - (register_number-8);
     beg_col = 16;
   }
@@ -205,13 +190,13 @@ void CPU::Show_reg(int register_number) {
 
   // Run a loop outputting each bit in the register
   int mask = 0x8000;
-  for (int bit = 0;bit < REGISTER_SIZE; bit++) {
+  for (int bit = 0; bit < REGISTER_SIZE; bit++) {
     if ( xor_mask & mask ) {    // skip output if nothing has changed
       mx.setPoint(beg_row,beg_col+bit, (value & mask) != 0);
     }
     mask = mask >> 1;     // move to next bit
   }
-  Regs_displayed[register_number] = value;  // remember what we put out
+  Regs_displayed[register_number] = value;  // remember what we displayed
 } // end of Show_register method
 
 // CPU method to output all the registers to the LED display
@@ -225,10 +210,9 @@ void CPU::Show_all_registers() {
 } // end of Show_all_registers method
 
 // CPU method to handle instruction single step
-int CPU::Step(void) {
+int CPU::Step() {
 
-  uint16_t address = Regs[PC_REGISTER];
-
+//  uint16_t address = Regs[PC_REGISTER];
 // uint16_t instruction = Memory[address];  // Instruction to be executed
 //  Serial.println("CONS> Step -instruction at %04X is %04X \n",address,instruction);
 
@@ -243,23 +227,31 @@ int CPU::Run(bool slow_display) {
   int return_code;
 
   do {
-    int16_t address = Regs[PC_REGISTER];
+    // save the current PC before running an instruction
+    uint16_t address = Regs[PC_REGISTER];
+
+    // run one cycle of the cpu
+    return_code = Execute();
+
+    // piece of code to check the serial port for a break, used in two places below
+    auto check_serial = [&return_code]() {
+      if (Serial.available()) {      // break on any key for now *********
+        char dummy = Serial.read();  // just dump the interrupt character 
+        return_code = KEYBOARD_INTERRUPT;
+      }      
+    };
 
     if (slow_display) {
       delay(2);                             // kill a bit of time for the display
       Show_all_registers();                 // output registers to the display
+      check_serial();
     } else {
       unsigned long current_time = millis();  // get the time
       if (current_time - last_time > 10) {
-        Show_all_registers();                 // output registers to the display
         last_time = current_time;
+        Show_all_registers();                 // output registers to the display
+        check_serial();
       }
-    }
-
-    return_code = Execute();
-    if (Serial.available()) {      // break on any key for now *********
-      char dummy = Serial.read();  // just dump the interrupt character 
-      return_code = KEYBOARD_INTERRUPT;
     }
 
     switch (return_code) {
@@ -270,7 +262,6 @@ int CPU::Run(bool slow_display) {
       }
  
       case INSTRUCTION_INVALID: {
-        //Serial.println("Invalid instruction at location %#x instruction is %#x \n", address,instruction);
         Serial.print("Invalid instruction at location 0x");
         Serial.print(address, HEX);
         Serial.print(", instruction is 0x");
@@ -279,20 +270,16 @@ int CPU::Run(bool slow_display) {
       }
  
       case  INSTRUCTION_NOT_IMPLEMENTED: {
-        //Serial.println("Not implemented instruction at location %#x instruction is %#x \n",address,instruction);
         Serial.print("Not implemented instruction 0x");
         Serial.print(address, HEX);
         Serial.print(", instruction is 0x");
         Serial.println(Memory[address], HEX);
         break;
-
       }
-    }         
+    }
+  } while (return_code == 0);
 
-  }while (return_code == 0);
-
-  return 0 ; // Error noted, return normal to console
-    
+  return 0; // Error noted, return normal to console
 }
 
 uint16_t CPU::do_add(uint16_t a, uint16_t b, int carry_in, bool cr_writeback) {
@@ -318,102 +305,100 @@ uint16_t CPU::do_add(uint16_t a, uint16_t b, int carry_in, bool cr_writeback) {
   return val;
 }
 
+// set the NZ bits in the condition register
+void CPU::set_NZ(uint16_t alu_result) {
+  Set_reg_bit(CR_REGISTER, CR_N_BIT, ISNEG(alu_result));
+  Set_reg_bit(CR_REGISTER, CR_Z_BIT, alu_result == 0);
+}
+
 // given the condition register and a 4 bit condition field, return true or false
 static bool test_cond(uint16_t CR, uint16_t cond) {
-  int bit = 0;
+  bool res = 0;
   switch (cond) {
     case COND_EQ: // Zero set
         if (CR & CR_Z_BIT_MASK)
-            bit = 1;
+            res = true;
         break;
     case COND_NE: // Zero clear
         if ((CR & CR_Z_BIT_MASK) == 0)
-            bit = 1;
+            res = true;
         break;
     case COND_CS: // Carry set
         if (CR & CR_C_BIT_MASK)
-            bit = 1;
+            res = true;
         break;
     case COND_CC: // Carry clear
         if ((CR & CR_C_BIT_MASK) == 0)
-            bit = 1;
+            res = true;
         break;
     case COND_MI: // Negative set
         if (CR & CR_N_BIT_MASK)
-            bit = 1;
+            res = true;
         break;
     case COND_PL : // Negative clear
         if ((CR & CR_N_BIT_MASK) == 0)
-            bit = 1;
+            res = true;
         break;
     case COND_VS: // Overflow set
         if (CR & CR_V_BIT_MASK)
-            bit = 1;
+            res = true;
         break;
     case COND_VC: // Overflow clear
         if ((CR & CR_V_BIT_MASK) == 0)
-            bit = 1;
+            res = true;
         break;
     case COND_HI: // Carry set and Zero clear
         if ((CR & (CR_C_BIT_MASK|CR_Z_BIT_MASK)) == CR_C_BIT_MASK)
-            bit = 1;
+            res = true;
         break;
     case COND_LS: // Carry clear or Zero set
         if (((CR & CR_C_BIT_MASK) == 0) || (CR & CR_Z_BIT_MASK))
-            bit = 1;
+            res = true;
         break;
     case COND_GE: { // Negative set and Overflow set, or Negative clear and Overflow clear (N==V)
         auto val = CR & (CR_N_BIT_MASK|CR_V_BIT_MASK);
         if (val == 0 || val == (CR_N_BIT_MASK|CR_V_BIT_MASK))
-            bit = 1;
+            res = true;
         break;
     }
     case COND_LT: { // Negative set and Overflow clear, or Negative clear and Overflow set (N!=V)
         auto val = CR & (CR_N_BIT_MASK|CR_V_BIT_MASK);
         if (val == CR_N_BIT_MASK || val == CR_V_BIT_MASK)
-            bit = 1;
+            res = true;
         break;
     }
     case COND_GT: { // Zero clear, and either Negative set or Overflow set, or Negative clear and Overflow clear (Z==0 and N==V)
         if ((CR & CR_Z_BIT_MASK) == 0) {
             auto val = CR & (CR_N_BIT_MASK|CR_V_BIT_MASK);
             if (val == 0 || val == (CR_N_BIT_MASK|CR_V_BIT_MASK))
-                bit = 1;
+                res = true;
         }
         break;
     }
     case COND_LE: { // Zero set, or Negative set and Overflow clear, or Negative clear and Overflow set (Z==1 or N!=V)
         if (CR & CR_Z_BIT_MASK)
-            bit = 1;
+            res = true;
 
         auto val = CR & (CR_N_BIT_MASK|CR_V_BIT_MASK);
         if (val == CR_N_BIT_MASK || val == CR_V_BIT_MASK)
-            bit = 1;
+            res = true;
         break;
     }
     case COND_AL:
     case COND_NV:
-        bit = 1;
+        res = true;
         break;
   }
-  return bit;
+  return res;
 }
 
 // CPU method to execute an instruction
 int CPU::Execute(){
-
   // see https://github.com/travisg/2stage/blob/master/isa.txt
 
   // fetch the next instruction word
   uint16_t instruction = Memory[Regs[PC_REGISTER]];  // Instruction to be executed 
   Regs[PC_REGISTER]++;
-
-#if 0
-  for (int i = 0; i < 8; i++) {
-    Regs[i] += i;
-    Show_reg(i);
-  }
-#endif
 
   // decode the instruction
   const uint16_t opcode = BITS_SHIFT(instruction, 15, 11); // top 5 bits are the main opcode
@@ -422,7 +407,7 @@ int CPU::Execute(){
   int d_reg = 0;
   uint16_t a_val = 0;
   uint16_t b_val = 0;
-  if (opcode <= 0b01101) {
+  if (opcode <= 0b01101) { // low opcodes all have similar bottom layouts
     d_reg = BITS_SHIFT(instruction, 10, 8);
     auto a_reg = BITS_SHIFT(instruction, 7, 5);
 
@@ -439,14 +424,18 @@ int CPU::Execute(){
       const bool d = BIT(instruction, 1); // d register is special
       const bool a = BIT(instruction, 0); // a register is special
 
+      // next word contains a 16 bit immediate
       if (i) {
         b_val = Memory[Regs[PC_REGISTER]]; // 16 bit immediate
         Regs[PC_REGISTER]++;
       }
 
+      // D register is actually a special register
       if (d) {
         d_reg += 8; // shift the decoded register into special reg space
       }
+
+      // A register is actually a special register
       if (a) {
         a_reg += 8; // shift the decoded register into special reg space
       }
@@ -466,54 +455,47 @@ int CPU::Execute(){
       Put_reg(d_reg, do_add(a_val, b_val, 0, true));
       break;
     case 0b00010: // adc : NZCV d = a + b + carry
-      Put_reg(d_reg, do_add(a_val, b_val, Get_reg(CR_REGISTER) & CR_C_BIT, true));
+      Put_reg(d_reg, do_add(a_val, b_val, Get_reg(CR_REGISTER) & CR_C_BIT ? 1 : 0, true));
       break;
     case 0b00011: // sub : NZCV d = a - b
       Put_reg(d_reg, do_add(a_val, ~b_val, 1, true));
       break;
     case 0b00100: // sbc : NZCV d = a - b - borrow
-      Put_reg(d_reg, do_add(a_val, ~b_val, Get_reg(CR_REGISTER) & CR_C_BIT, true));
+      Put_reg(d_reg, do_add(a_val, ~b_val, Get_reg(CR_REGISTER) & CR_C_BIT ? 1 : 0, true));
       break;
     case 0b00101: // and : NZ   d = a & b
       temp = a_val & b_val;
-      Set_reg_bit(CR_REGISTER, CR_N_BIT, ISNEG(temp));
-      Set_reg_bit(CR_REGISTER, CR_Z_BIT, temp == 0);
+      set_NZ(temp);
       Put_reg(d_reg, temp);
       break;
     case 0b00110: // or  : NZ   d = a | b
       temp = a_val | b_val;
-      Set_reg_bit(CR_REGISTER, CR_N_BIT, ISNEG(temp));
-      Set_reg_bit(CR_REGISTER, CR_Z_BIT, temp == 0);
+      set_NZ(temp);
       Put_reg(d_reg, temp);
       break;
     case 0b00111: // xor : NZ   d = a ^ b
       temp = a_val ^ b_val;
-      Set_reg_bit(CR_REGISTER, CR_N_BIT, ISNEG(temp));
-      Set_reg_bit(CR_REGISTER, CR_Z_BIT, temp == 0);
+      set_NZ(temp);
       Put_reg(d_reg, temp);
       break;
     case 0b01000: // lsl : NZ   d = a << b
       temp = LSL(a_val, b_val);
-      Set_reg_bit(CR_REGISTER, CR_N_BIT, ISNEG(temp));
-      Set_reg_bit(CR_REGISTER, CR_Z_BIT, temp == 0);
+      set_NZ(temp);
       Put_reg(d_reg, temp);
       break;
     case 0b01001: // lsr : NZ   d = a >> b
       temp = LSR(a_val, b_val);
-      Set_reg_bit(CR_REGISTER, CR_N_BIT, ISNEG(temp));
-      Set_reg_bit(CR_REGISTER, CR_Z_BIT, temp == 0);
+      set_NZ(temp);
       Put_reg(d_reg, temp);
       break;
     case 0b01010: // asr : NZ   d = (signed)a >> b
       temp = ASR(a_val, b_val);
-      Set_reg_bit(CR_REGISTER, CR_N_BIT, ISNEG(temp));
-      Set_reg_bit(CR_REGISTER, CR_Z_BIT, temp == 0);
+      set_NZ(temp);
       Put_reg(d_reg, temp);
       break;
     case 0b01011: // ror : NZ   d = rotate(a, b)
       temp = ROR(a_val, b_val);
-      Set_reg_bit(CR_REGISTER, CR_N_BIT, ISNEG(temp));
-      Set_reg_bit(CR_REGISTER, CR_Z_BIT, temp == 0);
+      set_NZ(temp);
       Put_reg(d_reg, temp);
       break;
 
@@ -543,8 +525,8 @@ int CPU::Execute(){
         // special case, all 0s in the bottom 4 bits (selecting register 0)
         if (BITS(instruction, 3, 0) == 0) {
           // target is (PC + 1) + immediate in next word
-          target_addr = (Regs[PC_REGISTER] + 1) + Memory[Regs[PC_REGISTER]]; // 16 bit immediate
-          Regs[PC_REGISTER]++;
+          target_addr = Memory[Regs[PC_REGISTER]++]; // 16 bit immediate
+          target_addr += Regs[PC_REGISTER];
         } else {
           // target is held in a register
           auto reg = BITS(instruction, 2, 0);
@@ -732,7 +714,7 @@ int getarg(char *buffer, char argv[][MAX_ARG_SIZE]) {
 class Console
 {
   public:
-    Console() ; // Console constructor
+    Console();      // Console constructor
     int Start();    // Console runs until terminated
 
   private:
@@ -754,7 +736,7 @@ int Console::Start(){
   cpu.Boot();       //for default, boot the flashing lights 
   cpu.Run(false);   //and run initially before falling into console
 
-  int num_args ;  // number of arguments on command including command
+  int num_args ;    // number of arguments on command including command
   bool finish = false;
   do {
     
