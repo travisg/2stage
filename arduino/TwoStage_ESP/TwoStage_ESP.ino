@@ -236,7 +236,7 @@ int CPU::Run(bool slow_display) {
     // piece of code to check the serial port for a break, used in two places below
     auto check_serial = [&return_code]() {
       if (Serial.available()) {      // break on any key for now *********
-        char dummy = Serial.read();  // just dump the interrupt character 
+        __attribute__((unused)) char dummy = Serial.read();  // just dump the interrupt character 
         return_code = KEYBOARD_INTERRUPT;
       }      
     };
@@ -645,13 +645,14 @@ int CPU::Boot(void) { // Boot code goes here, called by 'boot' from console
   };
 
   // load memory with the test app
-  for (auto i = 0; i < sizeof(test_app) / 2; i++) {
+  for (size_t i = 0; i < sizeof(test_app) / 2; i++) {
     Memory[i] = test_app[i];
   }
-
   for (auto &r : Regs) {
     r = 0;
   }
+
+  return 0;
 }
 
 // ******************************************************************
@@ -833,7 +834,7 @@ int Console::Start(){
 // "xm" examine memory command
     else if (strcmp(argv[0],"xm") == 0){  // examine memory
       unsigned long int address;
-      uint16_t number_words;
+      uint16_t number_words = 0;
       
       if (num_args > 1 ) { // memory address was on command line
        // sscanf(argv[1],"%x",&address);
@@ -879,7 +880,6 @@ int Console::Start(){
       unsigned long int address;
       uint16_t  value;
       char inbuf[21];
-      char* pointer_string;
       
       if (num_args > 1 ) { // memory address was on command line
         //sscanf(argv[1],"%x",&address);
