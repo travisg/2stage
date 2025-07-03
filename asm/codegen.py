@@ -145,7 +145,7 @@ class Symbol:
     def __str__(self):
         return "Symbol '%s' at addr 0x%04x resolved %d" % (self.name, self.addr, self.resolved)
 
-class Codegen_Exception:
+class Codegen_Exception(Exception):
     def __init__(self, string):
         self.string = string
 
@@ -194,7 +194,7 @@ class Codegen:
 
     def add_label(self, label):
         label = str(label[1])
-        if self.verbose: print "add label %s, address %#x" % (label, self.cur_addr)
+        if self.verbose: print("add label %s, address %#x" % (label, self.cur_addr))
 
         # see if it already exists
         try:
@@ -224,7 +224,7 @@ class Codegen:
             return sym
 
     def add_directive(self, ins):
-        if self.verbose: print "add directive %s" % str(ins)
+        if self.verbose: print("add directive %s" % str(ins))
         if ins[0] == ".word":
             d = Data()
             d.addr = self.cur_addr
@@ -280,7 +280,7 @@ class Codegen:
             raise Codegen_Exception("add_directive: unknown directive '%s'" % ins[0])
 
     def add_instruction(self, ins):
-        if self.verbose: print "add instruction %s" % str(ins)
+        if self.verbose: print("add instruction %s" % str(ins))
 
         i = Instruction()
         i.addr = self.cur_addr
@@ -557,11 +557,11 @@ class Codegen:
 
     def dump_output(self):
         for out in self.output:
-            print out
+            print(out)
 
     def dump_symbols(self):
         for sym in self.symbols:
-            print self.symbols[sym]
+            print(self.symbols[sym])
 
     def output_hex(self, hexfile):
         for out in self.output:

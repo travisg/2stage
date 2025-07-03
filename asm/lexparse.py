@@ -63,7 +63,7 @@ t_ignore = ' \t'
 
 literals = ':;,[]#'
 
-class LexerError:
+class LexerError(Exception):
     pass
 
 def t_DIRECTIVE(t):
@@ -126,7 +126,7 @@ def t_newline(t):
     #print "line %d" % t.lexer.lineno
 
 def t_error(t):
-    print "lexer error %s at line %u" % (t, t.lineno)
+    print("lexer error %s at line %u" % (t, t.lineno))
     raise LexerError
 
 import ply.lex as lex
@@ -139,11 +139,11 @@ def p_expr(p):
                     | directive
                     | preprocessor_directive
                     '''
-    #print "parser expr %s %s" % (p, p[0])
+    #print("parser expr %s %s" % (p, p[0]))
 
 def p_label(p):
     '''label        : ID ':' '''
-    #print "parser label %s, line %d" % (str(p[1]), p.lineno(1))
+    #print("parser label %s, line %d" % (str(p[1]), p.lineno(1)))
     codegen.add_label(p[1])
 
 def p_instruction(p):
@@ -209,7 +209,7 @@ class ParseError:
 
 def p_error(p):
     if p != None:
-        print "parser error %s on line %u" % (str(p.value), p.lineno)
+        print("parser error %s on line %u" % (str(p.value), p.lineno))
         raise ParseError
 
 import ply.yacc as yacc
